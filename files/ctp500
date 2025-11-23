@@ -22,15 +22,21 @@
 set -e
 
 # Configuration
-BACKEND_DIR="$(cd "$(dirname "$0")" && pwd)"
-CONFIG_FILE="${CONFIG_FILE:-/usr/local/etc/ctp500.conf}"
-CLI_BINARY="${CLI_BINARY:-/usr/local/bin/ctp500_ble_cli}"
+# Resolve symlink to find actual backend location
+SCRIPT_PATH="$0"
+if [[ -L "$SCRIPT_PATH" ]]; then
+  SCRIPT_PATH="$(readlink "$SCRIPT_PATH")"
+fi
+BACKEND_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
+
+CONFIG_FILE="${CONFIG_FILE:-${BACKEND_DIR}/../../etc/ctp500.conf}"
+CLI_BINARY="${CLI_BINARY:-${BACKEND_DIR}/../../bin/ctp500_ble_cli}"
 
 # Source helper functions (tested via TDD)
 if [[ -f "${BACKEND_DIR}/../share/ctp500/backend_functions.sh" ]]; then
   source "${BACKEND_DIR}/../share/ctp500/backend_functions.sh"
-elif [[ -f "$(dirname "$0")/backend_functions.sh" ]]; then
-  source "$(dirname "$0")/backend_functions.sh"
+elif [[ -f "$(dirname "$SCRIPT_PATH")/backend_functions.sh" ]]; then
+  source "$(dirname "$SCRIPT_PATH")/backend_functions.sh"
 else
   echo "ERROR: Cannot find backend_functions.sh" >&2
   exit 2
