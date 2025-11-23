@@ -29,8 +29,8 @@ if [[ -L "$SCRIPT_PATH" ]]; then
 fi
 BACKEND_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 
-CONFIG_FILE="${CONFIG_FILE:-${BACKEND_DIR}/../../etc/ctp500.conf}"
-CLI_BINARY="${CLI_BINARY:-${BACKEND_DIR}/../../bin/ctp500_ble_cli}"
+CONFIG_FILE="${CONFIG_FILE:-${BACKEND_DIR}/../etc/ctp500.conf}"
+CLI_BINARY="${CLI_BINARY:-${BACKEND_DIR}/../bin/ctp500_ble_cli}"
 
 # Source helper functions (tested via TDD)
 if [[ -f "${BACKEND_DIR}/../share/ctp500/backend_functions.sh" ]]; then
