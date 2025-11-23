@@ -1,102 +1,93 @@
-# Python
-*.py[cod]
-*$py.class
-*.so
-__pycache__/
-*.egg
-*.egg-info/
-dist/
-build/
-*.manifest
-*.spec.bak
+# # Python
+# *.py[cod]
+# *$py.class
+# *.so
+# __pycache__/
+# *.egg
+# *.egg-info/
+# dist/
+# build/
+# *.manifest
+# *.spec.bak
 
-# Virtual Environments
-venv/
-ENV/
-env/
-.venv
-.pyenv
+# # Virtual Environments
+# venv/
+# ENV/
+# env/
+# .venv
+# .pyenv
 
-# PyInstaller
-*.spec.orig
-build/
-dist/
+# # PyInstaller
+# *.spec.orig
+# build/
+# dist/
 
-# Testing
-.pytest_cache/
-.coverage
-.coverage.*
-htmlcov/
-.tox/
-.nox/
-coverage.xml
-*.cover
+# # Testing
+# .pytest_cache/
+# .coverage
+# .coverage.*
+# htmlcov/
+# .tox/
+# .nox/
+# coverage.xml
+# *.cover
 
-# IDEs
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-.DS_Store
-*.sublime-project
-*.sublime-workspace
-.spyderproject
-.spyproject
-.ropeproject
+# # IDEs
+# .vscode/
+# .idea/
+# *.swp
+# *.swo
+# *~
+# .DS_Store
+# *.sublime-project
+# *.sublime-workspace
+# .spyderproject
+# .spyproject
+# .ropeproject
 
-# macOS
-.DS_Store
-.AppleDouble
-.LSOverride
-Icon
-._*
-.DocumentRevisions-V100
-.fseventsd
-.Spotlight-V100
-.TemporaryItems
-.Trashes
-.VolumeIcon.icns
-.com.apple.timemachine.donotpresent
-.AppleDB
-.AppleDesktop
-Network Trash Folder
-Temporary Items
-.apdisk
+# # macOS
+# .DS_Store
+# .AppleDouble
+# .LSOverride
+# Icon
+# ._*
+# .DocumentRevisions-V100
+# .fseventsd
+# .Spotlight-V100
+# .TemporaryItems
+# .Trashes
+# .VolumeIcon.icns
+# .com.apple.timemachine.donotpresent
+# .AppleDB
+# .AppleDesktop
+# Network Trash Folder
+# Temporary Items
+# .apdisk
 
-# Project-specific
-*.log
-*.bak
-*.tmp
+# # Project-specific
+# *.log
+# *.bak
+# *.tmp
 
-# Ignore test images (but keep example if needed)
-# Uncomment these if you don't want to track test images:
-# *.png
-# *.jpg
-# *.jpeg
+# # Environment variables
+# .env
+# .env.local
+# .env.*.local
 
-# Ignore compiled binary (if you want to build locally)
-# ctp500
+# # Jupyter Notebook
+# .ipynb_checkpoints
 
-# Environment variables
-.env
-.env.local
-.env.*.local
+# # pyenv
+# .python-version
 
-# Jupyter Notebook
-.ipynb_checkpoints
+# # Installer logs
+# pip-log.txt
+# pip-delete-this-directory.txt
 
-# pyenv
-.python-version
+# # mypy
+# .mypy_cache/
+# .dmypy.json
+# dmypy.json
 
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
-
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
-
-# Pyre type checker
-.pyre/
+# # Pyre type checker
+# .pyre/
