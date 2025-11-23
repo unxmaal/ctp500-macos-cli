@@ -84,7 +84,7 @@ fi
 if [[ -n "$SHUNIT2_BIN" ]]; then
     for test_file in tests/backend/test_*.sh; do
         echo "Running: $(basename "$test_file")"
-        if ! "$SHUNIT2_BIN" "$test_file"; then
+        if ! bash "$test_file"; then
             echo "ERROR: Shell test failed: $test_file"
             exit 1
         fi

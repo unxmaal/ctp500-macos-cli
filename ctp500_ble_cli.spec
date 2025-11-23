@@ -44,10 +44,7 @@ exe = EXE(
     console=True,  # CLI application
     disable_windowed_traceback=False,
     argv_emulation=False,  # macOS-specific
-    target_arch='universal2',  # Support both Intel and Apple Silicon
+    target_arch=None,  # Build for current architecture
     codesign_identity=None,  # Set this for code signing if needed
     entitlements_file=None,
-    # Additional metadata
-    icon=None,  # Add .icns file path if you create one
-    version='1.0.0',
 )
