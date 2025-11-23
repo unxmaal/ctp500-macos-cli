@@ -1,4 +1,5 @@
 """Unit tests for image helper functions"""
+
 import pytest
 from PIL import Image, ImageFont
 import sys
@@ -32,6 +33,7 @@ class TestTrimImage:
         img = Image.new("RGB", (100, 100), (255, 255, 255))
         # Draw a black rectangle in the middle
         from PIL import ImageDraw
+
         draw = ImageDraw.Draw(img)
         draw.rectangle([25, 25, 75, 75], fill=(0, 0, 0))
 
@@ -46,6 +48,7 @@ class TestTrimImage:
         """Test that trim_image adds 10px margin at bottom"""
         img = Image.new("RGB", (100, 100), (255, 255, 255))
         from PIL import ImageDraw
+
         draw = ImageDraw.Draw(img)
         # Draw at top
         draw.rectangle([0, 0, 100, 10], fill=(0, 0, 0))
@@ -167,10 +170,7 @@ class TestCreateTextImage:
         """Test that missing font falls back to default"""
         text = "Test"
         # Use a non-existent font path
-        result = create_text_image(
-            text,
-            font_path="/nonexistent/font.ttf"
-        )
+        result = create_text_image(text, font_path="/nonexistent/font.ttf")
         # Should still create an image (using default font)
         assert isinstance(result, Image.Image)
         # Width gets trimmed

@@ -1,4 +1,5 @@
 """Integration tests for command functions with BLE mocking"""
+
 import pytest
 import sys
 import os
@@ -34,7 +35,9 @@ class TestScanDevices:
 
         args = Namespace(timeout=5.0)
 
-        with patch('ctp500_ble_cli.BleakScanner.discover', new_callable=AsyncMock) as mock_discover:
+        with patch(
+            "ctp500_ble_cli.BleakScanner.discover", new_callable=AsyncMock
+        ) as mock_discover:
             mock_discover.return_value = [mock_device]
             await scan_devices(args)
 
@@ -48,7 +51,9 @@ class TestScanDevices:
         """Test scan when no devices are found"""
         args = Namespace(timeout=5.0)
 
-        with patch('ctp500_ble_cli.BleakScanner.discover', new_callable=AsyncMock) as mock_discover:
+        with patch(
+            "ctp500_ble_cli.BleakScanner.discover", new_callable=AsyncMock
+        ) as mock_discover:
             mock_discover.return_value = []
             await scan_devices(args)
 
@@ -61,7 +66,9 @@ class TestScanDevices:
         """Test that scan uses the specified timeout"""
         args = Namespace(timeout=10.0)
 
-        with patch('ctp500_ble_cli.BleakScanner.discover', new_callable=AsyncMock) as mock_discover:
+        with patch(
+            "ctp500_ble_cli.BleakScanner.discover", new_callable=AsyncMock
+        ) as mock_discover:
             mock_discover.return_value = []
             await scan_devices(args)
 
@@ -104,7 +111,7 @@ class TestInspectDevice:
         mock_client.__aexit__ = AsyncMock()
         mock_client.services = mock_services
 
-        with patch('ctp500_ble_cli.BleakClient', return_value=mock_client):
+        with patch("ctp500_ble_cli.BleakClient", return_value=mock_client):
             await inspect_device(args)
 
         captured = capsys.readouterr()
@@ -141,17 +148,17 @@ class TestDoStatus:
         args = Namespace(
             address="AA:BB:CC:DD:EE:FF",
             write_uuid="write-uuid",
-            status_uuid="status-uuid"
+            status_uuid="status-uuid",
         )
 
         mock_client = MagicMock()
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock()
         mock_client.write_gatt_char = AsyncMock()
-        mock_client.read_gatt_char = AsyncMock(return_value=b"\xAA\xBB")
+        mock_client.read_gatt_char = AsyncMock(return_value=b"\xaa\xbb")
 
-        with patch('ctp500_ble_cli.BleakClient', return_value=mock_client):
-            with patch('asyncio.sleep', new_callable=AsyncMock):
+        with patch("ctp500_ble_cli.BleakClient", return_value=mock_client):
+            with patch("asyncio.sleep", new_callable=AsyncMock):
                 await do_status(args)
 
         captured = capsys.readouterr()
@@ -162,16 +169,14 @@ class TestDoStatus:
     async def test_status_without_status_uuid(self, capsys):
         """Test status command without status UUID (basic connect test)"""
         args = Namespace(
-            address="AA:BB:CC:DD:EE:FF",
-            write_uuid="write-uuid",
-            status_uuid=None
+            address="AA:BB:CC:DD:EE:FF", write_uuid="write-uuid", status_uuid=None
         )
 
         mock_client = MagicMock()
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock()
 
-        with patch('ctp500_ble_cli.BleakClient', return_value=mock_client):
+        with patch("ctp500_ble_cli.BleakClient", return_value=mock_client):
             await do_status(args)
 
         captured = capsys.readouterr()
@@ -193,7 +198,7 @@ class TestDoText:
             font=None,
             font_size=None,
             chunk_size=180,
-            black_is_one=False
+            black_is_one=False,
         )
 
         with pytest.raises(SystemExit):
@@ -211,7 +216,7 @@ class TestDoText:
             font=None,
             font_size=None,
             chunk_size=180,
-            black_is_one=False
+            black_is_one=False,
         )
 
         with pytest.raises(SystemExit):
@@ -229,7 +234,7 @@ class TestDoText:
             font=None,
             font_size=None,
             chunk_size=180,
-            black_is_one=False
+            black_is_one=False,
         )
 
         mock_client = MagicMock()
@@ -237,8 +242,8 @@ class TestDoText:
         mock_client.__aexit__ = AsyncMock()
         mock_client.write_gatt_char = AsyncMock()
 
-        with patch('ctp500_ble_cli.BleakClient', return_value=mock_client):
-            with patch('asyncio.sleep', new_callable=AsyncMock):
+        with patch("ctp500_ble_cli.BleakClient", return_value=mock_client):
+            with patch("asyncio.sleep", new_callable=AsyncMock):
                 await do_text(args)
 
         # Verify write was called (connection is automatic via context manager)
@@ -256,7 +261,7 @@ class TestDoText:
             font=None,
             font_size=None,
             chunk_size=180,
-            black_is_one=False
+            black_is_one=False,
         )
 
         mock_client = MagicMock()
@@ -266,9 +271,9 @@ class TestDoText:
 
         file_content = "Content from file"
 
-        with patch('ctp500_ble_cli.BleakClient', return_value=mock_client):
-            with patch('asyncio.sleep', new_callable=AsyncMock):
-                with patch('builtins.open', mock_open(read_data=file_content)):
+        with patch("ctp500_ble_cli.BleakClient", return_value=mock_client):
+            with patch("asyncio.sleep", new_callable=AsyncMock):
+                with patch("builtins.open", mock_open(read_data=file_content)):
                     await do_text(args)
 
         # Verify write was called (connection is automatic via context manager)
@@ -287,7 +292,7 @@ class TestDoImage:
             write_uuid="uuid",
             file="test.png",
             chunk_size=180,
-            black_is_one=False
+            black_is_one=False,
         )
 
         with pytest.raises(SystemExit):
@@ -302,7 +307,7 @@ class TestDoImage:
             write_uuid="uuid",
             file=None,
             chunk_size=180,
-            black_is_one=False
+            black_is_one=False,
         )
 
         with pytest.raises(SystemExit):
@@ -317,7 +322,7 @@ class TestDoImage:
             write_uuid="write-uuid",
             file="test.png",
             chunk_size=180,
-            black_is_one=False
+            black_is_one=False,
         )
 
         # Create a test image in memory
@@ -328,9 +333,9 @@ class TestDoImage:
         mock_client.__aexit__ = AsyncMock()
         mock_client.write_gatt_char = AsyncMock()
 
-        with patch('ctp500_ble_cli.BleakClient', return_value=mock_client):
-            with patch('asyncio.sleep', new_callable=AsyncMock):
-                with patch('ctp500_ble_cli.Image.open', return_value=test_image):
+        with patch("ctp500_ble_cli.BleakClient", return_value=mock_client):
+            with patch("asyncio.sleep", new_callable=AsyncMock):
+                with patch("ctp500_ble_cli.Image.open", return_value=test_image):
                     await do_image(args)
 
         # Verify write was called (connection is automatic via context manager)
@@ -349,7 +354,7 @@ class TestConnectClient:
         mock_client = MagicMock()
         mock_client.connect = AsyncMock()
 
-        with patch('ctp500_ble_cli.BleakClient', return_value=mock_client):
+        with patch("ctp500_ble_cli.BleakClient", return_value=mock_client):
             result = await connect_client(address)
 
         assert result == mock_client

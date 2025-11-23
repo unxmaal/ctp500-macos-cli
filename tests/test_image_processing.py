@@ -1,4 +1,5 @@
 """Unit tests for image processing functions"""
+
 import pytest
 from PIL import Image
 import sys

@@ -1,4 +1,5 @@
 """Unit tests for utility functions"""
+
 import pytest
 import sys
 import os
@@ -35,6 +36,7 @@ class TestResolveWriteUuid:
         with patch.dict(os.environ, {"CTP500_WRITE_UUID": "test-uuid-123"}, clear=True):
             import importlib
             import ctp500_ble_cli
+
             importlib.reload(ctp500_ble_cli)
             result = ctp500_ble_cli.resolve_write_uuid(args)
 
@@ -66,6 +68,7 @@ class TestResolveWriteUuid:
         with patch.dict(os.environ, {}, clear=True):
             import importlib
             import ctp500_ble_cli
+
             importlib.reload(ctp500_ble_cli)
             with pytest.raises(SystemExit) as exc_info:
                 ctp500_ble_cli.resolve_write_uuid(args)
@@ -90,6 +93,7 @@ class TestResolveWriteUuid:
         with patch.dict(os.environ, {"CTP500_WRITE_UUID": ""}):
             import importlib
             import ctp500_ble_cli
+
             importlib.reload(ctp500_ble_cli)
             with pytest.raises(SystemExit) as exc_info:
                 ctp500_ble_cli.resolve_write_uuid(args)
@@ -102,9 +106,12 @@ class TestResolveWriteUuid:
         args = Namespace(write_uuid="")
 
         # Import and reload module with patched environment
-        with patch.dict(os.environ, {"CTP500_WRITE_UUID": "fallback-uuid-456"}, clear=True):
+        with patch.dict(
+            os.environ, {"CTP500_WRITE_UUID": "fallback-uuid-456"}, clear=True
+        ):
             import importlib
             import ctp500_ble_cli
+
             importlib.reload(ctp500_ble_cli)
             result = ctp500_ble_cli.resolve_write_uuid(args)
 
@@ -121,6 +128,7 @@ class TestConfigParsing:
             # Re-import to get fresh environment
             import importlib
             import ctp500_ble_cli
+
             importlib.reload(ctp500_ble_cli)
 
             # Should default to 384
@@ -132,6 +140,7 @@ class TestConfigParsing:
         with patch.dict(os.environ, {"CTP500_PRINTER_WIDTH": "500"}):
             import importlib
             import ctp500_ble_cli
+
             importlib.reload(ctp500_ble_cli)
 
             assert ctp500_ble_cli.PRINTER_WIDTH == 500
@@ -142,6 +151,7 @@ class TestConfigParsing:
         with patch.dict(os.environ, {}, clear=True):
             import importlib
             import ctp500_ble_cli
+
             importlib.reload(ctp500_ble_cli)
 
             assert ctp500_ble_cli.DEFAULT_FONT_SIZE == 28
@@ -152,6 +162,7 @@ class TestConfigParsing:
         with patch.dict(os.environ, {"CTP500_FONT_SIZE": "40"}):
             import importlib
             import ctp500_ble_cli
+
             importlib.reload(ctp500_ble_cli)
 
             assert ctp500_ble_cli.DEFAULT_FONT_SIZE == 40
@@ -162,6 +173,7 @@ class TestConfigParsing:
         with patch.dict(os.environ, {}, clear=True):
             import importlib
             import ctp500_ble_cli
+
             importlib.reload(ctp500_ble_cli)
 
             assert ctp500_ble_cli.DEFAULT_BLACK_IS_ONE is False
@@ -173,6 +185,7 @@ class TestConfigParsing:
         with patch.dict(os.environ, {"CTP500_BLACK_IS_ONE": value}):
             import importlib
             import ctp500_ble_cli
+
             importlib.reload(ctp500_ble_cli)
 
             assert ctp500_ble_cli.DEFAULT_BLACK_IS_ONE is True
@@ -184,6 +197,7 @@ class TestConfigParsing:
         with patch.dict(os.environ, {"CTP500_BLACK_IS_ONE": value}):
             import importlib
             import ctp500_ble_cli
+
             importlib.reload(ctp500_ble_cli)
 
             assert ctp500_ble_cli.DEFAULT_BLACK_IS_ONE is False
@@ -194,6 +208,7 @@ class TestConfigParsing:
         with patch.dict(os.environ, {}, clear=True):
             import importlib
             import ctp500_ble_cli
+
             importlib.reload(ctp500_ble_cli)
 
             assert ctp500_ble_cli.DEFAULT_FONT_PATH == "Lucon.ttf"
@@ -205,6 +220,7 @@ class TestConfigParsing:
         with patch.dict(os.environ, {"CTP500_FONT": custom_path}):
             import importlib
             import ctp500_ble_cli
+
             importlib.reload(ctp500_ble_cli)
 
             assert ctp500_ble_cli.DEFAULT_FONT_PATH == custom_path

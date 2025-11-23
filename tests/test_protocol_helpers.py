@@ -1,4 +1,5 @@
 """Unit tests for printer protocol helper functions"""
+
 import pytest
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, call, patch
@@ -71,7 +72,9 @@ class TestWriteLong:
         data = b"x" * 200
         chunk_size = 100
 
-        await write_long(mock_client, char_uuid="uuid", data=data, chunk_size=chunk_size, delay=0)
+        await write_long(
+            mock_client, char_uuid="uuid", data=data, chunk_size=chunk_size, delay=0
+        )
 
         # Should write exactly 2 chunks
         assert mock_client.write_gatt_char.call_count == 2
@@ -98,7 +101,7 @@ class TestWriteLong:
         data = b"x" * 250
         delay = 0.01
 
-        with patch('asyncio.sleep', new_callable=AsyncMock) as mock_sleep:
+        with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
             await write_long(mock_client, "uuid", data, chunk_size=100, delay=delay)
 
             # Should sleep 3 times (once after each chunk)
@@ -114,7 +117,7 @@ class TestWriteLong:
 
         data = b"x" * 250
 
-        with patch('asyncio.sleep', new_callable=AsyncMock) as mock_sleep:
+        with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
             await write_long(mock_client, "uuid", data, chunk_size=100, delay=0)
 
             # Should not sleep when delay is 0
@@ -143,7 +146,7 @@ class TestSendInitAndStart:
         mock_client = MagicMock()
         mock_client.write_gatt_char = AsyncMock()
 
-        with patch('asyncio.sleep', new_callable=AsyncMock):
+        with patch("asyncio.sleep", new_callable=AsyncMock):
             await send_init_and_start(mock_client, "test-uuid")
 
         # First call should be init sequence
@@ -159,7 +162,7 @@ class TestSendInitAndStart:
         mock_client = MagicMock()
         mock_client.write_gatt_char = AsyncMock()
 
-        with patch('asyncio.sleep', new_callable=AsyncMock):
+        with patch("asyncio.sleep", new_callable=AsyncMock):
             await send_init_and_start(mock_client, "test-uuid")
 
         # Second call should be start sequence
@@ -175,7 +178,7 @@ class TestSendInitAndStart:
         mock_client = MagicMock()
         mock_client.write_gatt_char = AsyncMock()
 
-        with patch('asyncio.sleep', new_callable=AsyncMock) as mock_sleep:
+        with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
             await send_init_and_start(mock_client, "test-uuid")
 
             # Should sleep twice (after each write)
@@ -189,7 +192,7 @@ class TestSendInitAndStart:
         mock_client = MagicMock()
         mock_client.write_gatt_char = AsyncMock()
 
-        with patch('asyncio.sleep', new_callable=AsyncMock):
+        with patch("asyncio.sleep", new_callable=AsyncMock):
             await send_init_and_start(mock_client, "test-uuid")
 
         calls = mock_client.write_gatt_char.call_args_list
@@ -208,7 +211,7 @@ class TestSendEnd:
         mock_client = MagicMock()
         mock_client.write_gatt_char = AsyncMock()
 
-        with patch('asyncio.sleep', new_callable=AsyncMock):
+        with patch("asyncio.sleep", new_callable=AsyncMock):
             await send_end(mock_client, "test-uuid")
 
         mock_client.write_gatt_char.assert_called_once_with(
@@ -222,7 +225,7 @@ class TestSendEnd:
         mock_client = MagicMock()
         mock_client.write_gatt_char = AsyncMock()
 
-        with patch('asyncio.sleep', new_callable=AsyncMock) as mock_sleep:
+        with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
             await send_end(mock_client, "test-uuid")
 
             mock_sleep.assert_called_once_with(0.1)
@@ -239,7 +242,7 @@ class TestSendStatusRequest:
         mock_client.write_gatt_char = AsyncMock()
         mock_client.read_gatt_char = AsyncMock(return_value=b"\x00\x01")
 
-        with patch('asyncio.sleep', new_callable=AsyncMock):
+        with patch("asyncio.sleep", new_callable=AsyncMock):
             await send_status_request(mock_client, "write-uuid", "status-uuid")
 
         mock_client.write_gatt_char.assert_called_once_with(
@@ -254,7 +257,7 @@ class TestSendStatusRequest:
         mock_client.write_gatt_char = AsyncMock()
         mock_client.read_gatt_char = AsyncMock(return_value=b"\x00\x01")
 
-        with patch('asyncio.sleep', new_callable=AsyncMock):
+        with patch("asyncio.sleep", new_callable=AsyncMock):
             await send_status_request(mock_client, "write-uuid", "status-uuid")
 
         mock_client.read_gatt_char.assert_called_once_with("status-uuid")
@@ -265,10 +268,10 @@ class TestSendStatusRequest:
         """Test that function returns the status data"""
         mock_client = MagicMock()
         mock_client.write_gatt_char = AsyncMock()
-        expected_data = b"\xAA\xBB\xCC"
+        expected_data = b"\xaa\xbb\xcc"
         mock_client.read_gatt_char = AsyncMock(return_value=expected_data)
 
-        with patch('asyncio.sleep', new_callable=AsyncMock):
+        with patch("asyncio.sleep", new_callable=AsyncMock):
             result = await send_status_request(mock_client, "write-uuid", "status-uuid")
 
         assert result == expected_data
@@ -281,7 +284,7 @@ class TestSendStatusRequest:
         mock_client.write_gatt_char = AsyncMock()
         mock_client.read_gatt_char = AsyncMock(return_value=b"\x00")
 
-        with patch('asyncio.sleep', new_callable=AsyncMock) as mock_sleep:
+        with patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
             await send_status_request(mock_client, "write-uuid", "status-uuid")
 
             mock_sleep.assert_called_once_with(0.2)
