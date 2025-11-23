@@ -9,8 +9,83 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from ctp500_ble_cli import (
     prepare_image_for_printer,
     image_to_raster_bytes,
+    floyd_steinberg_dither,
     PRINTER_WIDTH,
 )
+
+
+class TestFloydSteinbergDither:
+    """Tests for floyd_steinberg_dither function"""
+
+    @pytest.mark.unit
+    def test_returns_1bit_image(self):
+        """Test that dithering returns 1-bit image"""
+        img = Image.new("L", (100, 100), 128)
+        result = floyd_steinberg_dither(img)
+        assert result.mode == "1"
+
+    @pytest.mark.unit
+    def test_preserves_dimensions(self):
+        """Test that dithering preserves image dimensions"""
+        width, height = 200, 150
+        img = Image.new("L", (width, height), 128)
+        result = floyd_steinberg_dither(img)
+        assert result.size == (width, height)
+
+    @pytest.mark.unit
+    def test_pure_white_stays_white(self):
+        """Test that pure white pixels stay white"""
+        img = Image.new("L", (10, 10), 255)
+        result = floyd_steinberg_dither(img)
+        # All pixels should be white (255 in mode '1')
+        pixels = list(result.getdata())
+        assert all(p == 255 for p in pixels)
+
+    @pytest.mark.unit
+    def test_pure_black_stays_black(self):
+        """Test that pure black pixels stay black"""
+        img = Image.new("L", (10, 10), 0)
+        result = floyd_steinberg_dither(img)
+        # All pixels should be black (0 in mode '1')
+        pixels = list(result.getdata())
+        assert all(p == 0 for p in pixels)
+
+    @pytest.mark.unit
+    def test_mid_gray_produces_pattern(self):
+        """Test that mid-gray produces dithered pattern (mix of black and white)"""
+        img = Image.new("L", (100, 100), 128)
+        result = floyd_steinberg_dither(img)
+        pixels = list(result.getdata())
+
+        # Should have both black and white pixels (dithered)
+        unique_values = set(pixels)
+        assert 0 in unique_values or 255 in unique_values
+        # For mid-gray, should have roughly 50% black pixels
+        black_count = sum(1 for p in pixels if p == 0)
+        black_ratio = black_count / len(pixels)
+        # Allow 30-70% range (dithering creates patterns)
+        assert 0.3 <= black_ratio <= 0.7
+
+    @pytest.mark.unit
+    def test_gradient_produces_varying_density(self):
+        """Test that gradient produces varying dot density"""
+        # Create gradient from black to white
+        img = Image.new("L", (256, 100))
+        for x in range(256):
+            for y in range(100):
+                img.putpixel((x, y), x)  # Gradient 0-255
+
+        result = floyd_steinberg_dither(img)
+
+        # Left side (dark) should have more black pixels than right (light)
+        left_pixels = [result.getpixel((x, 50)) for x in range(50)]
+        right_pixels = [result.getpixel((x, 50)) for x in range(206, 256)]
+
+        left_black = sum(1 for p in left_pixels if p == 0)
+        right_black = sum(1 for p in right_pixels if p == 0)
+
+        # Left should have significantly more black pixels
+        assert left_black > right_black
 
 
 class TestPrepareImageForPrinter:

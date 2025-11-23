@@ -35,8 +35,6 @@ import argparse
 import asyncio
 import os
 import sys
-import struct
-from time import time
 
 from bleak import BleakClient, BleakScanner
 
@@ -44,10 +42,21 @@ from PIL import Image, ImageDraw, ImageFont, ImageChops, ImageOps
 
 
 # ---------------------------------------------------------------------
-# Configuration
+# Configuration & Constants
 # ---------------------------------------------------------------------
 
 PRINTER_WIDTH = int(os.getenv("CTP500_PRINTER_WIDTH", "384"))
+
+# Image processing constants
+TRIM_BOTTOM_MARGIN_PX = 10
+TEXT_CANVAS_HEIGHT_PX = 5000
+THRESHOLD_VALUE = 128
+
+# BLE communication constants
+DEFAULT_CHUNK_SIZE = 180
+DEFAULT_WRITE_DELAY_SEC = 0.02
+INIT_DELAY_SEC = 0.1
+STATUS_READ_DELAY_SEC = 0.2
 
 # You *must* set this to the printer's write characteristic UUID.
 # Leave empty here; use env var or CLI flag.
@@ -71,25 +80,35 @@ DEFAULT_BLACK_IS_ONE = CTP500_BLACK_IS_ONE in ("1", "true", "TRUE", "yes", "on")
 
 def trim_image(im: Image.Image) -> Image.Image:
     """Trim vertical whitespace from an image, leaving a little margin."""
-    bg = Image.new(im.mode, im.size, (255, 255, 255))
+    # Create background matching image mode
+    if im.mode in ("L", "LA"):
+        bg = Image.new(im.mode, im.size, 255)
+    else:
+        bg = Image.new(im.mode, im.size, (255, 255, 255))
+
     diff = ImageChops.difference(im, bg)
     diff = ImageChops.add(diff, diff, 2.0)
     bbox = diff.getbbox()
     if bbox:
-        # Add ~10px at bottom so the last line isn't cut off
-        return im.crop((bbox[0], bbox[1], bbox[2], bbox[3] + 10))
+        # Add margin at bottom so the last line isn't cut off
+        bottom = min(bbox[3] + TRIM_BOTTOM_MARGIN_PX, im.height)
+        return im.crop((bbox[0], bbox[1], bbox[2], bottom))
     return im
 
 
 def get_wrapped_text(text: str, font: ImageFont.FreeTypeFont, line_length: int) -> str:
     """Wrap text so that each line fits within `line_length` pixels."""
-    lines = ['']
+    lines = []
     for word in text.split():
-        candidate = f"{lines[-1]} {word}".strip()
-        if font.getlength(candidate) <= line_length:
-            lines[-1] = candidate
-        else:
+        if not lines:
+            # First word starts first line
             lines.append(word)
+        else:
+            candidate = f"{lines[-1]} {word}"
+            if font.getlength(candidate) <= line_length:
+                lines[-1] = candidate
+            else:
+                lines.append(word)
     return "\n".join(lines)
 
 
@@ -101,14 +120,14 @@ def create_text_image(
 ) -> Image.Image:
     """Render text into an image sized for the printer."""
     # Big canvas, will trim later
-    img = Image.new("RGB", (printer_width, 5000), color=(255, 255, 255))
+    img = Image.new("RGB", (printer_width, TEXT_CANVAS_HEIGHT_PX), color=(255, 255, 255))
 
     # Load font (with graceful fallback)
     try:
         font = ImageFont.truetype(font_path, font_size)
-    except Exception:
+    except (OSError, IOError) as e:
         print(
-            f"Warning: could not load font '{font_path}'. Falling back to default.",
+            f"Warning: could not load font '{font_path}': {e}. Falling back to default.",
             file=sys.stderr,
         )
         font = ImageFont.load_default()
@@ -124,10 +143,56 @@ def create_text_image(
     return trim_image(img)
 
 
+def floyd_steinberg_dither(im: Image.Image) -> Image.Image:
+    """
+    Apply Floyd-Steinberg dithering to a grayscale image.
+    Converts to 1-bit black/white with error diffusion for better quality.
+    Returns 1-bit image where 0 = black, 255 = white.
+    """
+    # Work on a copy as grayscale
+    img = im.convert("L")
+    width, height = img.size
+
+    # Convert to numpy-like array for faster processing
+    pixels = list(img.getdata())
+
+    for y in range(height):
+        for x in range(width):
+            idx = y * width + x
+            old_pixel = pixels[idx]
+
+            # Threshold: < 128 = black (0), >= 128 = white (255)
+            new_pixel = 0 if old_pixel < THRESHOLD_VALUE else 255
+            pixels[idx] = new_pixel
+
+            # Calculate error
+            error = old_pixel - new_pixel
+
+            # Distribute error to neighboring pixels (Floyd-Steinberg pattern)
+            if x + 1 < width:  # Right pixel
+                pixels[idx + 1] = max(0, min(255, pixels[idx + 1] + error * 7 // 16))
+
+            if y + 1 < height:
+                if x > 0:  # Bottom-left pixel
+                    pixels[idx + width - 1] = max(0, min(255, pixels[idx + width - 1] + error * 3 // 16))
+
+                # Bottom pixel
+                pixels[idx + width] = max(0, min(255, pixels[idx + width] + error * 5 // 16))
+
+                if x + 1 < width:  # Bottom-right pixel
+                    pixels[idx + width + 1] = max(0, min(255, pixels[idx + width + 1] + error * 1 // 16))
+
+    # Create new 1-bit image
+    result = Image.new("1", (width, height))
+    result.putdata(pixels)
+    return result
+
+
 def prepare_image_for_printer(im: Image.Image, printer_width: int = PRINTER_WIDTH) -> Image.Image:
     """
     Resize, pad, and convert an image for the CTP500 printer.
     We produce a 1-bit image where 0 = black, 255 = white.
+    Uses Floyd-Steinberg dithering for better image quality.
     We DO NOT invert here; bit polarity is handled later.
     """
     # Convert to grayscale first
@@ -137,7 +202,7 @@ def prepare_image_for_printer(im: Image.Image, printer_width: int = PRINTER_WIDT
     # Scale down if wider than printer resolution
     if im.width > printer_width:
         height = int(im.height * (printer_width / im.width))
-        im = im.resize((printer_width, height))
+        im = im.resize((printer_width, height), Image.Resampling.LANCZOS)
 
     # Pad if narrower than printer width
     if im.width < printer_width:
@@ -152,9 +217,8 @@ def prepare_image_for_printer(im: Image.Image, printer_width: int = PRINTER_WIDT
         padded.paste(im, (0, 0))
         im = padded
 
-    # Threshold to pure black/white, no invert
-    # 0..127 => 0 (black), 128..255 => 255 (white)
-    im = im.convert("L").point(lambda p: 0 if p < 128 else 255, "1")
+    # Apply Floyd-Steinberg dithering for better image quality
+    im = floyd_steinberg_dither(im)
 
     return im
 
@@ -205,8 +269,8 @@ async def write_long(
     client: BleakClient,
     char_uuid: str,
     data: bytes,
-    chunk_size: int = 180,
-    delay: float = 0.02,
+    chunk_size: int = DEFAULT_CHUNK_SIZE,
+    delay: float = DEFAULT_WRITE_DELAY_SEC,
 ):
     """Write a long buffer to a GATT characteristic in chunks."""
     for i in range(0, len(data), chunk_size):
@@ -218,14 +282,14 @@ async def write_long(
 
 async def send_init_and_start(client: BleakClient, write_uuid: str):
     await client.write_gatt_char(write_uuid, INIT_SEQUENCE, response=False)
-    await asyncio.sleep(0.1)
+    await asyncio.sleep(INIT_DELAY_SEC)
     await client.write_gatt_char(write_uuid, START_PRINT_SEQUENCE, response=False)
-    await asyncio.sleep(0.1)
+    await asyncio.sleep(INIT_DELAY_SEC)
 
 
 async def send_end(client: BleakClient, write_uuid: str):
     await client.write_gatt_char(write_uuid, END_PRINT_SEQUENCE, response=False)
-    await asyncio.sleep(0.1)
+    await asyncio.sleep(INIT_DELAY_SEC)
 
 
 async def send_status_request(client: BleakClient, write_uuid: str, status_uuid: str):
@@ -234,7 +298,7 @@ async def send_status_request(client: BleakClient, write_uuid: str, status_uuid:
     and read back from a separate status characteristic (if provided).
     """
     await client.write_gatt_char(write_uuid, STATUS_REQUEST, response=False)
-    await asyncio.sleep(0.2)
+    await asyncio.sleep(STATUS_READ_DELAY_SEC)
     data = await client.read_gatt_char(status_uuid)
     return data
 
@@ -334,7 +398,7 @@ async def do_status(args):
             try:
                 data = await send_status_request(client, write_uuid, status_uuid)
                 print(f"Raw status ({len(data)} bytes): {data.hex()}")
-            except Exception as e:
+            except (OSError, TimeoutError, ConnectionError) as e:
                 print(f"Status request failed: {e}", file=sys.stderr)
         else:
             print("No status UUID configured; just testing basic connect OK.")
@@ -350,8 +414,12 @@ async def do_text(args):
     write_uuid = resolve_write_uuid(args)
 
     if args.file:
-        with open(args.file, "r", encoding="utf-8") as f:
-            text = f.read()
+        try:
+            with open(args.file, "r", encoding="utf-8") as f:
+                text = f.read()
+        except (OSError, IOError) as e:
+            print(f"Error reading file '{args.file}': {e}", file=sys.stderr)
+            sys.exit(1)
     else:
         text = args.message or ""
     text = text.strip()
@@ -364,17 +432,16 @@ async def do_text(args):
     img = create_text_image(
         text,
         printer_width=PRINTER_WIDTH,
-        font_path=args.font or DEFAULT_FONT_PATH,
-        font_size=args.font_size or DEFAULT_FONT_SIZE,
+        font_path=args.font if args.font is not None else DEFAULT_FONT_PATH,
+        font_size=args.font_size if args.font_size is not None else DEFAULT_FONT_SIZE,
     )
     img = prepare_image_for_printer(img, PRINTER_WIDTH)
 
-    black_is_one = args.black_is_one or DEFAULT_BLACK_IS_ONE
+    black_is_one = args.black_is_one if args.black_is_one is not None else DEFAULT_BLACK_IS_ONE
     raster = image_to_raster_bytes(img, black_is_one=black_is_one)
 
     print(f"Connecting to printer at {address}...")
     async with BleakClient(address) as client:
-        await client.connect()
         print("Connected. Sending job...")
         await send_init_and_start(client, write_uuid)
         await write_long(client, write_uuid, raster, chunk_size=args.chunk_size)
@@ -395,15 +462,22 @@ async def do_image(args):
         sys.exit(1)
 
     print(f"Loading image from {args.file}...")
-    img = Image.open(args.file)
+    try:
+        img = Image.open(args.file)
+    except (OSError, IOError) as e:
+        print(f"Error loading image '{args.file}': {e}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Invalid or unsupported image file '{args.file}': {e}", file=sys.stderr)
+        sys.exit(1)
+
     img = prepare_image_for_printer(img, PRINTER_WIDTH)
 
-    black_is_one = args.black_is_one or DEFAULT_BLACK_IS_ONE
+    black_is_one = args.black_is_one if args.black_is_one is not None else DEFAULT_BLACK_IS_ONE
     raster = image_to_raster_bytes(img, black_is_one=black_is_one)
 
     print(f"Connecting to printer at {address}...")
     async with BleakClient(address) as client:
-        await client.connect()
         print("Connected. Sending job...")
         await send_init_and_start(client, write_uuid)
         await write_long(client, write_uuid, raster, chunk_size=args.chunk_size)
