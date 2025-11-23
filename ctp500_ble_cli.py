@@ -120,7 +120,9 @@ def create_text_image(
 ) -> Image.Image:
     """Render text into an image sized for the printer."""
     # Big canvas, will trim later
-    img = Image.new("RGB", (printer_width, TEXT_CANVAS_HEIGHT_PX), color=(255, 255, 255))
+    img = Image.new(
+        "RGB", (printer_width, TEXT_CANVAS_HEIGHT_PX), color=(255, 255, 255)
+    )
 
     # Load font (with graceful fallback)
     try:
@@ -174,13 +176,19 @@ def floyd_steinberg_dither(im: Image.Image) -> Image.Image:
 
             if y + 1 < height:
                 if x > 0:  # Bottom-left pixel
-                    pixels[idx + width - 1] = max(0, min(255, pixels[idx + width - 1] + error * 3 // 16))
+                    pixels[idx + width - 1] = max(
+                        0, min(255, pixels[idx + width - 1] + error * 3 // 16)
+                    )
 
                 # Bottom pixel
-                pixels[idx + width] = max(0, min(255, pixels[idx + width] + error * 5 // 16))
+                pixels[idx + width] = max(
+                    0, min(255, pixels[idx + width] + error * 5 // 16)
+                )
 
                 if x + 1 < width:  # Bottom-right pixel
-                    pixels[idx + width + 1] = max(0, min(255, pixels[idx + width + 1] + error * 1 // 16))
+                    pixels[idx + width + 1] = max(
+                        0, min(255, pixels[idx + width + 1] + error * 1 // 16)
+                    )
 
     # Create new 1-bit image
     result = Image.new("1", (width, height))
@@ -188,7 +196,9 @@ def floyd_steinberg_dither(im: Image.Image) -> Image.Image:
     return result
 
 
-def prepare_image_for_printer(im: Image.Image, printer_width: int = PRINTER_WIDTH) -> Image.Image:
+def prepare_image_for_printer(
+    im: Image.Image, printer_width: int = PRINTER_WIDTH
+) -> Image.Image:
     """
     Resize, pad, and convert an image for the CTP500 printer.
     We produce a 1-bit image where 0 = black, 255 = white.
@@ -221,7 +231,6 @@ def prepare_image_for_printer(im: Image.Image, printer_width: int = PRINTER_WIDT
     im = floyd_steinberg_dither(im)
 
     return im
-
 
 
 def image_to_raster_bytes(im: Image.Image, black_is_one: bool = False) -> bytes:
@@ -259,10 +268,10 @@ def image_to_raster_bytes(im: Image.Image, black_is_one: bool = False) -> bytes:
 # ---------------------------------------------------------------------
 
 
-INIT_SEQUENCE = b"\x1b\x40"          # ESC @
+INIT_SEQUENCE = b"\x1b\x40"  # ESC @
 START_PRINT_SEQUENCE = b"\x1d\x49\xf0\x19"
 END_PRINT_SEQUENCE = b"\x0a\x0a\x0a\x9a"
-STATUS_REQUEST = b"\x1e\x47\x03"     # from original get_printer_status()
+STATUS_REQUEST = b"\x1e\x47\x03"  # from original get_printer_status()
 
 
 async def write_long(
@@ -359,7 +368,6 @@ async def inspect_device(args):
                 print(f"  Char  {char.uuid}  [{props}]  ({desc})")
 
 
-
 async def connect_client(address: str) -> BleakClient:
     client = BleakClient(address)
     await client.connect()
@@ -437,7 +445,9 @@ async def do_text(args):
     )
     img = prepare_image_for_printer(img, PRINTER_WIDTH)
 
-    black_is_one = args.black_is_one if args.black_is_one is not None else DEFAULT_BLACK_IS_ONE
+    black_is_one = (
+        args.black_is_one if args.black_is_one is not None else DEFAULT_BLACK_IS_ONE
+    )
     raster = image_to_raster_bytes(img, black_is_one=black_is_one)
 
     print(f"Connecting to printer at {address}...")
@@ -473,7 +483,9 @@ async def do_image(args):
 
     img = prepare_image_for_printer(img, PRINTER_WIDTH)
 
-    black_is_one = args.black_is_one if args.black_is_one is not None else DEFAULT_BLACK_IS_ONE
+    black_is_one = (
+        args.black_is_one if args.black_is_one is not None else DEFAULT_BLACK_IS_ONE
+    )
     raster = image_to_raster_bytes(img, black_is_one=black_is_one)
 
     print(f"Connecting to printer at {address}...")
@@ -496,7 +508,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
     # scan
     ps = sub.add_parser("scan", help="Scan for nearby BLE devices")
-    ps.add_argument("--timeout", type=float, default=5.0, help="Scan duration in seconds")
+    ps.add_argument(
+        "--timeout", type=float, default=5.0, help="Scan duration in seconds"
+    )
     ps.set_defaults(func=scan_devices)
 
     # inspect
@@ -518,8 +532,12 @@ def build_arg_parser() -> argparse.ArgumentParser:
     group = pt.add_mutually_exclusive_group(required=True)
     group.add_argument("--file", help="Text file to print")
     group.add_argument("--message", help="Inline text to print")
-    pt.add_argument("--font", help="Path to TTF font (default: Lucon.ttf or env CTP500_FONT)")
-    pt.add_argument("--font-size", type=int, help="Font size (default: env CTP500_FONT_SIZE or 28)")
+    pt.add_argument(
+        "--font", help="Path to TTF font (default: Lucon.ttf or env CTP500_FONT)"
+    )
+    pt.add_argument(
+        "--font-size", type=int, help="Font size (default: env CTP500_FONT_SIZE or 28)"
+    )
     pt.add_argument(
         "--chunk-size",
         type=int,
@@ -530,7 +548,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
         "--black-is-one",
         action="store_true",
         help="Treat 1-bits in raster as black (otherwise 0-bits are black). "
-             "Can also set env CTP500_BLACK_IS_ONE=1.",
+        "Can also set env CTP500_BLACK_IS_ONE=1.",
     )
     pt.set_defaults(func=do_text)
 
@@ -549,7 +567,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
         "--black-is-one",
         action="store_true",
         help="Treat 1-bits in raster as black (otherwise 0-bits are black). "
-             "Can also set env CTP500_BLACK_IS_ONE=1.",
+        "Can also set env CTP500_BLACK_IS_ONE=1.",
     )
     pi2.set_defaults(func=do_image)
 
