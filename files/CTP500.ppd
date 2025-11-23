@@ -1,0 +1,139 @@
+*PPD-Adobe: "4.3"
+*%
+*% PPD file for CTP500 Thermal Receipt Printer
+*% For use with CUPS and the ctp500 backend
+*%
+
+*FormatVersion: "4.3"
+*FileVersion: "1.0"
+*LanguageVersion: English
+*LanguageEncoding: ISOLatin1
+*PCFileName: "CTP500.ppd"
+*Manufacturer: "Generic"
+*Product: "(CTP500 Thermal Printer)"
+*ModelName: "CTP500 Thermal Receipt Printer"
+*ShortNickName: "CTP500 Thermal"
+*NickName: "CTP500 Thermal Receipt Printer"
+*PSVersion: "(3010.000) 0"
+*LanguageLevel: "3"
+*ColorDevice: False
+*DefaultColorSpace: Gray
+*FileSystem: False
+*Throughput: "1"
+*LandscapeOrientation: Plus90
+*TTRasterizer: Type42
+
+*% === Basic Device Capabilities ===
+*cupsVersion: 2.3
+*cupsModelNumber: 0
+*cupsManualCopies: False
+*cupsFilter: "application/vnd.cups-raster 0 -"
+*cupsFilter: "application/vnd.cups-postscript 0 -"
+*cupsFilter: "application/vnd.cups-pdf 0 -"
+*cupsFilter: "image/png 0 -"
+*cupsFilter: "image/jpeg 0 -"
+*cupsFilter: "text/plain 0 -"
+
+*% === Paper Sizes ===
+*% Thermal receipt paper is typically 80mm (3.15") wide, variable length
+*OpenUI *PageSize: PickOne
+*OrderDependency: 10 AnySetup *PageSize
+*DefaultPageSize: 80mmContinuous
+*PageSize 80mmContinuous/80mm Continuous: "<</PageSize[227 3600]/ImagingBBox null>>setpagedevice"
+*PageSize 58mmContinuous/58mm Continuous: "<</PageSize[165 3600]/ImagingBBox null>>setpagedevice"
+*CloseUI: *PageSize
+
+*OpenUI *PageRegion: PickOne
+*OrderDependency: 10 AnySetup *PageRegion
+*DefaultPageRegion: 80mmContinuous
+*PageRegion 80mmContinuous/80mm Continuous: "<</PageSize[227 3600]/ImagingBBox null>>setpagedevice"
+*PageRegion 58mmContinuous/58mm Continuous: "<</PageSize[165 3600]/ImagingBBox null>>setpagedevice"
+*CloseUI: *PageRegion
+
+*DefaultImageableArea: 80mmContinuous
+*ImageableArea 80mmContinuous/80mm Continuous: "0 0 227 3600"
+*ImageableArea 58mmContinuous/58mm Continuous: "0 0 165 3600"
+
+*DefaultPaperDimension: 80mmContinuous
+*PaperDimension 80mmContinuous/80mm Continuous: "227 3600"
+*PaperDimension 58mmContinuous/58mm Continuous: "165 3600"
+
+*% === Resolution ===
+*% Thermal printers typically operate at 203 DPI (8 dots/mm)
+*OpenUI *Resolution: PickOne
+*OrderDependency: 20 AnySetup *Resolution
+*DefaultResolution: 203dpi
+*Resolution 203dpi/203 DPI: "<</HWResolution[203 203]>>setpagedevice"
+*CloseUI: *Resolution
+
+*% === Margins ===
+*% Minimal margins for thermal printers
+*HWMargins: 0 0 0 0
+*CustomPageSize True: "pop pop pop <</PageSize[5 -2 roll]/ImagingBBox null>>setpagedevice"
+*ParamCustomPageSize Width: 1 points 165 227
+*ParamCustomPageSize Height: 2 points 72 3600
+*ParamCustomPageSize WidthOffset: 3 points 0 0
+*ParamCustomPageSize HeightOffset: 4 points 0 0
+*ParamCustomPageSize Orientation: 5 int 0 0
+
+*% === Media Type ===
+*OpenUI *MediaType: PickOne
+*OrderDependency: 10 AnySetup *MediaType
+*DefaultMediaType: Thermal
+*MediaType Thermal/Thermal Paper: ""
+*CloseUI: *MediaType
+
+*% === Print Quality/Dithering ===
+*% Our backend applies Floyd-Steinberg dithering by default
+*OpenUI *cupsPrintQuality: PickOne
+*OrderDependency: 10 AnySetup *cupsPrintQuality
+*DefaultcupsPrintQuality: Normal
+*cupsPrintQuality Draft/Draft: ""
+*cupsPrintQuality Normal/Normal: ""
+*cupsPrintQuality High/High Quality: ""
+*CloseUI: *cupsPrintQuality
+
+*% === Color Model ===
+*% Monochrome only for thermal printer
+*OpenUI *ColorModel: PickOne
+*OrderDependency: 10 AnySetup *ColorModel
+*DefaultColorModel: Gray
+*ColorModel Gray/Grayscale: "<</cupsColorSpace 18/cupsColorOrder 0/cupsBitsPerColor 8>>setpagedevice"
+*CloseUI: *ColorModel
+
+*% === Input Slot ===
+*OpenUI *InputSlot: PickOne
+*OrderDependency: 10 AnySetup *InputSlot
+*DefaultInputSlot: Auto
+*InputSlot Auto/Auto Select: ""
+*CloseUI: *InputSlot
+
+*% === Output Bin ===
+*OpenUI *OutputBin: PickOne
+*OrderDependency: 10 AnySetup *OutputBin
+*DefaultOutputBin: Auto
+*OutputBin Auto/Auto Select: ""
+*CloseUI: *OutputBin
+
+*% === Font Information ===
+*DefaultFont: Courier
+*Font Courier: Standard "(001.000)" Standard ROM
+*Font Courier-Bold: Standard "(001.000)" Standard ROM
+*Font Courier-Oblique: Standard "(001.000)" Standard ROM
+*Font Courier-BoldOblique: Standard "(001.000)" Standard ROM
+*Font Helvetica: Standard "(001.000)" Standard ROM
+*Font Helvetica-Bold: Standard "(001.000)" Standard ROM
+*Font Helvetica-Oblique: Standard "(001.000)" Standard ROM
+*Font Helvetica-BoldOblique: Standard "(001.000)" Standard ROM
+*Font Times-Roman: Standard "(001.000)" Standard ROM
+*Font Times-Bold: Standard "(001.000)" Standard ROM
+*Font Times-Italic: Standard "(001.000)" Standard ROM
+*Font Times-BoldItalic: Standard "(001.000)" Standard ROM
+
+*% === Device-specific Options ===
+*% BLE connection parameters are configured per-device via device URI
+
+*% === Constraints ===
+*% No specific constraints for this simple thermal printer
+
+*% === End of PPD ===

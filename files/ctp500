@@ -1,0 +1,228 @@
+#!/bin/bash
+#
+# CUPS Backend for CTP500 Thermal Receipt Printer (BLE)
+#
+# This backend interfaces between CUPS and the ctp500_ble_cli binary.
+# It handles file format detection, conversion, and BLE communication.
+#
+# CUPS calls this backend with:
+#   backend job-id user title copies options [file]
+#
+# Device URI format:
+#   ctp500://BLE-ADDRESS
+#   Example: ctp500://D210000E-A47D-2971-6819-A5F4389E7B86
+#
+# Exit codes (CUPS standard):
+#   0 = Success
+#   1 = Failed (CUPS will retry)
+#   2 = Failed (CUPS will stop queue)
+#   3 = Failed (CUPS will cancel job)
+#   4 = Failed (CUPS will hold job)
+
+set -e
+
+# Configuration
+BACKEND_DIR="$(cd "$(dirname "$0")" && pwd)"
+CONFIG_FILE="${CONFIG_FILE:-/usr/local/etc/ctp500.conf}"
+CLI_BINARY="${CLI_BINARY:-/usr/local/bin/ctp500_ble_cli}"
+
+# Source helper functions (tested via TDD)
+if [[ -f "${BACKEND_DIR}/../share/ctp500/backend_functions.sh" ]]; then
+  source "${BACKEND_DIR}/../share/ctp500/backend_functions.sh"
+elif [[ -f "$(dirname "$0")/backend_functions.sh" ]]; then
+  source "$(dirname "$0")/backend_functions.sh"
+else
+  echo "ERROR: Cannot find backend_functions.sh" >&2
+  exit 2
+fi
+
+#------------------------------------------------------------------------------
+# Logging
+#------------------------------------------------------------------------------
+
+log_info() {
+  echo "INFO: $*" >&2
+}
+
+log_error() {
+  echo "ERROR: $*" >&2
+}
+
+#------------------------------------------------------------------------------
+# CUPS Discovery Mode
+#------------------------------------------------------------------------------
+
+# When called with no arguments, backend should report available devices
+if [[ $# -eq 0 ]]; then
+  echo "direct ctp500 \"CTP500 Thermal Printer\" \"CTP500 BLE Thermal Receipt Printer\""
+  exit 0
+fi
+
+#------------------------------------------------------------------------------
+# Parse CUPS Arguments
+#------------------------------------------------------------------------------
+
+JOB_ID="$1"
+USER="$2"
+TITLE="$3"
+COPIES="$4"
+OPTIONS="$5"
+FILE="$6"
+
+log_info "Job $JOB_ID: User=$USER, Title=$TITLE, Copies=$COPIES"
+
+#------------------------------------------------------------------------------
+# Validate Device URI
+#------------------------------------------------------------------------------
+
+if [[ -z "$DEVICE_URI" ]]; then
+  log_error "DEVICE_URI environment variable not set"
+  exit 2
+fi
+
+if ! validate_uri "$DEVICE_URI"; then
+  log_error "Invalid device URI: $DEVICE_URI"
+  log_error "Expected format: ctp500://BLE-ADDRESS"
+  exit 2
+fi
+
+#------------------------------------------------------------------------------
+# Extract BLE Address from URI
+#------------------------------------------------------------------------------
+
+BLE_ADDRESS=$(extract_ble_address "$DEVICE_URI")
+if [[ $? -ne 0 ]] || [[ -z "$BLE_ADDRESS" ]]; then
+  log_error "Failed to extract BLE address from URI: $DEVICE_URI"
+  exit 2
+fi
+
+if ! validate_ble_address "$BLE_ADDRESS"; then
+  log_error "Invalid BLE address format: $BLE_ADDRESS"
+  exit 2
+fi
+
+log_info "BLE Address: $BLE_ADDRESS"
+
+#------------------------------------------------------------------------------
+# Load Configuration
+#------------------------------------------------------------------------------
+
+WRITE_UUID=$(get_write_uuid "$CONFIG_FILE")
+CHUNK_SIZE=$(get_chunk_size "$CONFIG_FILE")
+
+log_info "Write UUID: $WRITE_UUID"
+log_info "Chunk Size: $CHUNK_SIZE"
+
+#------------------------------------------------------------------------------
+# Determine Input Source
+#------------------------------------------------------------------------------
+
+# If no file argument, read from stdin
+if [[ -z "$FILE" ]] || [[ "$FILE" == "-" ]]; then
+  TEMP_FILE=$(mktemp /tmp/ctp500-job-XXXXXX)
+  cat > "$TEMP_FILE"
+  FILE="$TEMP_FILE"
+  CLEANUP_TEMP=1
+  log_info "Reading from stdin to temp file: $FILE"
+else
+  CLEANUP_TEMP=0
+  log_info "Input file: $FILE"
+fi
+
+#------------------------------------------------------------------------------
+# Detect File Format
+#------------------------------------------------------------------------------
+
+FORMAT=$(detect_format "$FILE")
+log_info "Detected format: $FORMAT"
+
+#------------------------------------------------------------------------------
+# Convert to Image if Needed
+#------------------------------------------------------------------------------
+
+IMAGE_FILE=""
+
+case "$FORMAT" in
+  image)
+    # Already an image, use directly
+    IMAGE_FILE="$FILE"
+    log_info "Using image file directly"
+    ;;
+
+  text)
+    # Use CLI's text command (which creates image internally)
+    log_info "Printing text file..."
+    if "$CLI_BINARY" text \
+      --address "$BLE_ADDRESS" \
+      --write-uuid "$WRITE_UUID" \
+      --file "$FILE" \
+      --black-is-one \
+      --chunk-size "$CHUNK_SIZE" 2>&1 | tee -a /tmp/ctp500.log; then
+
+      [[ $CLEANUP_TEMP -eq 1 ]] && rm -f "$FILE"
+      exit 0
+    else
+      log_error "Text printing failed"
+      [[ $CLEANUP_TEMP -eq 1 ]] && rm -f "$FILE"
+      exit 1
+    fi
+    ;;
+
+  postscript|pdf)
+    # Convert PostScript/PDF to PNG using sips (built-in macOS tool)
+    IMAGE_FILE=$(mktemp /tmp/ctp500-image-XXXXXX.png)
+    log_info "Converting $FORMAT to PNG..."
+
+    if sips -s format png "$FILE" --out "$IMAGE_FILE" >/dev/null 2>&1; then
+      log_info "Conversion successful: $IMAGE_FILE"
+    else
+      log_error "Failed to convert $FORMAT to image"
+      log_error "sips command failed. Install Ghostscript for better PDF support."
+      rm -f "$IMAGE_FILE"
+      [[ $CLEANUP_TEMP -eq 1 ]] && rm -f "$FILE"
+      exit 3
+    fi
+    ;;
+
+  *)
+    log_error "Unsupported file format: $FORMAT"
+    [[ $CLEANUP_TEMP -eq 1 ]] && rm -f "$FILE"
+    exit 3
+    ;;
+esac
+
+#------------------------------------------------------------------------------
+# Print Image
+#------------------------------------------------------------------------------
+
+if [[ -n "$IMAGE_FILE" ]] && [[ -f "$IMAGE_FILE" ]]; then
+  log_info "Printing image to $BLE_ADDRESS..."
+
+  if "$CLI_BINARY" image \
+    --address "$BLE_ADDRESS" \
+    --write-uuid "$WRITE_UUID" \
+    --file "$IMAGE_FILE" \
+    --black-is-one \
+    --chunk-size "$CHUNK_SIZE" 2>&1 | tee -a /tmp/ctp500.log; then
+
+    log_info "Print job completed successfully"
+    EXIT_CODE=0
+  else
+    log_error "Print job failed"
+    EXIT_CODE=1
+  fi
+
+  # Cleanup
+  [[ "$IMAGE_FILE" != "$FILE" ]] && rm -f "$IMAGE_FILE"
+  [[ $CLEANUP_TEMP -eq 1 ]] && rm -f "$FILE"
+
+  exit $EXIT_CODE
+fi
+
+#------------------------------------------------------------------------------
+# Should Not Reach Here
+#------------------------------------------------------------------------------
+
+log_error "Unexpected error: no image to print"
+[[ $CLEANUP_TEMP -eq 1 ]] && rm -f "$FILE"
+exit 2
