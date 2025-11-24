@@ -149,7 +149,7 @@ class Ctp500Printer < Formula
 
     # Verify Python dependencies are installed
     ENV["PYTHONPATH"] = "#{libexec}/vendor"
-    system Formula["python@3.11"].opt_bin/"python3", "-c", "import bleak; import PIL"
+    system Formula["python@3.11"].opt_bin/"python3.11", "-c", "import bleak; import PIL"
 
     # Run unit tests for backend functions
     ENV["SHUNIT_COLOR"] = "none"

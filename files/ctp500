@@ -32,12 +32,12 @@ BACKEND_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 CONFIG_FILE="${CONFIG_FILE:-${BACKEND_DIR}/../etc/ctp500.conf}"
 
 # Find Python3 (prefer Homebrew python@3.11, fall back to system)
-PYTHON3="${PYTHON3:-/opt/homebrew/opt/python@3.11/bin/python3}"
+PYTHON3="${PYTHON3:-/opt/homebrew/opt/python@3.11/bin/python3.11}"
 if [[ ! -x "$PYTHON3" ]]; then
-  PYTHON3="$(command -v python3)"
+  PYTHON3="$(command -v python3.11)"
 fi
 if [[ -z "$PYTHON3" ]]; then
-  log_error "python3 not found in PATH"
+  log_error "python3.11 not found in PATH"
   exit 2
 fi
 
