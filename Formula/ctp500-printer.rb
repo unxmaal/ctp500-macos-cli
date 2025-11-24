@@ -2,7 +2,7 @@ class Ctp500Printer < Formula
   desc "CUPS printer driver for CTP500 BLE thermal receipt printer"
   homepage "https://github.com/unxmaal/ctp500-macos-cli"
   url "https://github.com/unxmaal/ctp500-macos-cli/releases/download/v1.1.0/ctp500-macos-cli-1.1.0.tar.gz"
-  sha256 "def4c124d4337d0b8f484b3304cc12c3e6752180dcfc3fad984a780fd8c193f0"
+  sha256 "e1606e9b6e829ab61c93ac2bcad652d81a8b92b45d88e23ecba3eb4e26559e87"
   license "MIT"
 
   depends_on :macos
@@ -23,7 +23,7 @@ class Ctp500Printer < Formula
     (bin/"ctp500_ble_cli").write <<~EOS
       #!/bin/bash
       export PYTHONPATH="#{libexec}/vendor:$PYTHONPATH"
-      exec "#{Formula["python@3.11"].opt_bin}/python3" "#{libexec}/ctp500_ble_cli.py" "$@"
+      exec "#{Formula["python@3.11"].opt_bin}/python3.11" "#{libexec}/ctp500_ble_cli.py" "$@"
     EOS
     chmod 0755, bin/"ctp500_ble_cli"
 
