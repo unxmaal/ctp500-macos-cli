@@ -85,7 +85,7 @@ jobs:
 
         # Create tarball
         cd dist
-        tar -czf "${DIST_NAME}.tar.gz" "${DIST_NAME}"
+        tar -czf "dist/${DIST_NAME}.tar.gz" -C "dist/${DIST_NAME}" .
         cd ..
 
         # Calculate SHA256
