@@ -13,93 +13,142 @@ jobs:
     runs-on: macos-latest
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+      # ---------------------------------------------------------
+      # Checkout
+      # ---------------------------------------------------------
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
+      # ---------------------------------------------------------
+      # Python environment
+      # ---------------------------------------------------------
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-    - name: Install build deps
-      run: brew install shunit2
+      - name: Install Homebrew dependencies
+        run: brew install shunit2
 
-    - name: Install Python deps
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install -r requirements-dev.txt
-        pip install pyinstaller
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+          pip install pyinstaller
 
-    - name: Run Python tests
-      run: pytest tests/ -v
+      # ---------------------------------------------------------
+      # Run tests
+      # ---------------------------------------------------------
+      - name: Run Python tests
+        run: pytest tests/ -v
 
-    - name: Run shell tests
-      run: |
-        for f in tests/backend/test_*.sh; do
-          echo "Running: $f"
-          bash "$f"
-        done
+      - name: Run shell script tests
+        run: |
+          for test_file in tests/backend/test_*.sh; do
+            echo "Running: $(basename "$test_file")"
+            bash "$test_file"
+          done
 
-    - name: Extract version
-      id: get_version
-      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+      # ---------------------------------------------------------
+      # Extract version from tag
+      # ---------------------------------------------------------
+      - name: Extract version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
 
-    - name: Build binary
-      run: |
-        pyinstaller ctp500_ble_cli.spec
-        chmod +x dist/ctp500_ble_cli
+      # ---------------------------------------------------------
+      # Build PyInstaller binary
+      # ---------------------------------------------------------
+      - name: Build binary with PyInstaller
+        run: |
+          pyinstaller ctp500_ble_cli.spec
+          chmod +x dist/ctp500_ble_cli
 
-    - name: Deep-sign binary
-      run: |
-        codesign --force --deep -s - \
-          --entitlements entitlements.plist \
-          dist/ctp500_ble_cli
-        codesign -dv --verbose=4 dist/ctp500_ble_cli
+      # ---------------------------------------------------------
+      # Code signing with Bluetooth entitlements
+      # ---------------------------------------------------------
+      - name: Deep code sign binary (CRITICAL for CUPS)
+        run: |
+          codesign --force --deep -s - \
+            --entitlements entitlements.plist \
+            dist/ctp500_ble_cli
 
-    - name: Create distribution tarball
-      id: create_tarball
-      run: |
-        VERSION="${{ steps.get_version.outputs.VERSION }}"
-        NAME="ctp500-macos-cli-${VERSION}"
-        ROOT="dist/${NAME}"
+          echo "✓ Verifying signature"
+          codesign -dv --verbose=4 dist/ctp500_ble_cli
 
-        mkdir -p "${ROOT}/"{bin,files,Formula,docs,tests/backend/fixtures}
+      # ---------------------------------------------------------
+      # Create distribution tarball with top-level directory
+      # ---------------------------------------------------------
+      - name: Create distribution tarball
+        id: create_tarball
+        run: |
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+          DIST_NAME="ctp500-macos-cli-${VERSION}"
+          DIST_DIR="dist/${DIST_NAME}"
 
-        cp dist/ctp500_ble_cli "${ROOT}/bin/"
-        cp files/* "${ROOT}/files/"
-        cp Formula/ctp500-printer.rb "${ROOT}/Formula/"
-        cp README.md "${ROOT}/"
-        cp docs/* "${ROOT}/docs/" 2>/dev/null || true
-        cp tests/backend/*.sh "${ROOT}/tests/backend/"
-        cp tests/backend/fixtures/* "${ROOT}/tests/backend/fixtures/"
+          # Create distribution layout under top-level dir
+          mkdir -p "${DIST_DIR}"/{bin,files,Formula,docs,tests/backend/fixtures}
 
-        # Proper directory-preserving tarball (NOT FLAT)
-        cd dist
-        tar -czf "${NAME}.tar.gz" "${NAME}"
-        cd ..
+          # Copy signed binary
+          cp dist/ctp500_ble_cli "${DIST_DIR}/bin/"
 
-        SHA256=$(shasum -a 256 "dist/${NAME}.tar.gz" | cut -d ' ' -f1)
+          # Copy driver/backend files
+          cp files/ctp500 "${DIST_DIR}/files/"
+          cp files/backend_functions.sh "${DIST_DIR}/files/"
+          cp files/CTP500.ppd "${DIST_DIR}/files/"
+          cp files/ctp500.conf "${DIST_DIR}/files/"
 
-        echo "SHA256=${SHA256}" >> "$GITHUB_OUTPUT"
-        echo "TARBALL=dist/${NAME}.tar.gz" >> "$GITHUB_OUTPUT"
+          # Copy formula, docs, tests
+          cp Formula/ctp500-printer.rb "${DIST_DIR}/Formula/"
+          cp README.md "${DIST_DIR}/"
+          cp docs/*.md "${DIST_DIR}/docs/" 2>/dev/null || true
+          cp tests/backend/*.sh "${DIST_DIR}/tests/backend/"
+          cp tests/backend/fixtures/* "${DIST_DIR}/tests/backend/fixtures/"
 
-    - name: Create GitHub Release
-      env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        VERSION="${{ steps.get_version.outputs.VERSION }}"
-        TARBALL="${{ steps.create_tarball.outputs.TARBALL }}"
+          # NOTE: include the top-level directory in the tarball
+          cd dist
+          TARBALL="${DIST_NAME}.tar.gz"
+          tar -czf "${TARBALL}" "${DIST_NAME}"
+          cd ..
 
-        gh release create "v${VERSION}" \
-          "$TARBALL" \
-          --title "CTP500 macOS CLI v${VERSION}" \
-          --notes "Automated release" \
-          --draft=false \
-          --prerelease=false \
-        || gh release upload "v${VERSION}" "$TARBALL" --clobber
+          # Compute SHA256
+          SHA256=$(shasum -a 256 "dist/${TARBALL}" | cut -d' ' -f1)
 
-    - name: Summary
-      run: |
-        echo "**Version:** ${{ steps.get_version.outputs.VERSION }}" >> $GITHUB_STEP_SUMMARY
-        echo "**SHA256:** \`${{ steps.create_tarball.outputs.SHA256 }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "SHA256=${SHA256}" >> "$GITHUB_OUTPUT"
+          echo "TARBALL=dist/${TARBALL}" >> "$GITHUB_OUTPUT"
+
+          echo "✓ Built tarball: dist/${TARBALL}"
+          echo "✓ SHA256: ${SHA256}"
+
+      # ---------------------------------------------------------
+      # Create or update release & upload tarball
+      # ---------------------------------------------------------
+      - name: Create GitHub Release & Upload Asset
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+          TARBALL="${{ steps.create_tarball.outputs.TARBALL }}"
+
+          echo "Creating release for version ${VERSION}"
+
+          gh release create "v${VERSION}" \
+            "${TARBALL}" \
+            --title "CTP500 macOS CLI v${VERSION}" \
+            --notes "Automated release for version ${VERSION}" \
+            --draft=false --prerelease=false || \
+          gh release upload "v${VERSION}" "${TARBALL}" --clobber
+
+          echo "✓ Release created/updated"
+
+      # ---------------------------------------------------------
+      # Summary
+      # ---------------------------------------------------------
+      - name: Output SHA256
+        run: |
+          echo "## Release Created" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Version:** ${{ steps.get_version.outputs.VERSION }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "**SHA256:** \`${{ steps.create_tarball.outputs.SHA256 }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Update your Homebrew formula with this checksum." >> "$GITHUB_STEP_SUMMARY"
