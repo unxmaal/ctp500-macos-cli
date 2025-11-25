@@ -83,10 +83,8 @@ jobs:
         cp tests/backend/*.sh "${DIST_DIR}/tests/backend/"
         cp tests/backend/fixtures/* "${DIST_DIR}/tests/backend/fixtures/"
 
-        # Create tarball
-        cd dist
-        tar -czf "dist/${DIST_NAME}.tar.gz" -C "dist/${DIST_NAME}" .
-        cd ..
+        # Create FLAT tarball (IMPORTANT!)
+        tar -czf "dist/${DIST_NAME}.tar.gz" -C "${DIST_DIR}" .
 
         # Calculate SHA256
         SHA256=$(shasum -a 256 "dist/${DIST_NAME}.tar.gz" | cut -d' ' -f1)
@@ -94,6 +92,7 @@ jobs:
         echo "SHA256=$SHA256" >> $GITHUB_OUTPUT
         echo "TARBALL=dist/${DIST_NAME}.tar.gz" >> $GITHUB_OUTPUT
       id: create_tarball
+
 
     - name: Create Release
       id: create_release
