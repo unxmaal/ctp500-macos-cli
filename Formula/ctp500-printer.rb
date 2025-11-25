@@ -2,18 +2,18 @@ class Ctp500Printer < Formula
   desc "CUPS printer driver for CTP500 BLE thermal receipt printer"
   homepage "https://github.com/unxmaal/ctp500-macos-cli"
   url "https://github.com/unxmaal/ctp500-macos-cli/releases/download/v1.1.0/ctp500-macos-cli-1.1.0.tar.gz"
-  sha256 "66d5443eba37d023815790f42a51c77d68213d5b745e9eb1fcb155fa70b20cc9"
+  sha256 "edbc1d9d9d32833907b78128ac78a9c2df73e014c74c76c64a3a794e30cbd04a"
   license "MIT"
 
   depends_on :macos
   depends_on "shunit2" => :build  # For running tests during install
 
   def install
-    # Install pre-built binary
+    # Install pre-built binary as CLI tool
     bin.install "bin/ctp500_ble_cli"
 
-    # Install backend script to libexec (CUPS backends dir)
-    libexec.install "files/ctp500"
+    # Install binary as CUPS backend (NO shell wrapper - binary is the backend)
+    libexec.install "bin/ctp500_ble_cli" => "ctp500"
 
     # Install helper functions
     (share/"ctp500").install "files/backend_functions.sh"
@@ -54,15 +54,20 @@ class Ctp500Printer < Formula
 
     # Set correct ownership and permissions (CRITICAL for CUPS)
     # IMPORTANT: Must be root:_lp (the CUPS backend user), NOT root:wheel
+    # Use 700 permissions (safer for SIP/CUPS sandbox)
     system "sudo", "chown", "root:_lp", backend_dest
-    system "sudo", "chmod", "755", backend_dest
+    system "sudo", "chmod", "700", backend_dest
+
+    # Remove extended attributes that block CUPS execution
+    system "sudo", "xattr", "-c", backend_dest
 
     # Reload CUPS daemon to recognize new backend
     system "sudo", "launchctl", "stop", "org.cups.cupsd"
     system "sudo", "launchctl", "start", "org.cups.cupsd"
 
     puts "✔ CUPS backend installed to #{backend_dest}"
-    puts "✔ Ownership: root:_lp, Permissions: 755"
+    puts "✔ Ownership: root:_lp, Permissions: 700"
+    puts "✔ Extended attributes removed"
     puts "✔ CUPS daemon restarted"
   end
 
