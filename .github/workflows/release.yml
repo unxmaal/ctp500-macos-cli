@@ -13,9 +13,15 @@ jobs:
     runs-on: macos-latest
 
     steps:
+    # ---------------------------------------------------------
+    # Checkout
+    # ---------------------------------------------------------
     - name: Checkout code
       uses: actions/checkout@v4
 
+    # ---------------------------------------------------------
+    # Python environment
+    # ---------------------------------------------------------
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
@@ -31,6 +37,9 @@ jobs:
         pip install -r requirements-dev.txt
         pip install pyinstaller
 
+    # ---------------------------------------------------------
+    # Run tests
+    # ---------------------------------------------------------
     - name: Run Python tests
       run: pytest tests/ -v
 
@@ -41,127 +50,105 @@ jobs:
           bash "$test_file"
         done
 
+    # ---------------------------------------------------------
+    # Extract version from tag
+    # ---------------------------------------------------------
     - name: Extract version from tag
       id: get_version
       run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
+    # ---------------------------------------------------------
+    # Build PyInstaller binary
+    # ---------------------------------------------------------
     - name: Build binary with PyInstaller
       run: |
         pyinstaller ctp500_ble_cli.spec
         chmod +x dist/ctp500_ble_cli
 
-    - name: Deep code sign binary (CRITICAL for CUPS daemon context)
+    # ---------------------------------------------------------
+    # Code signing with Bluetooth entitlements
+    # ---------------------------------------------------------
+    - name: Deep code sign binary (CRITICAL for CUPS)
       run: |
         codesign --force --deep -s - \
           --entitlements entitlements.plist \
           dist/ctp500_ble_cli
 
-        # Verify signing
+        echo "✓ Verifying signature"
         codesign -dv --verbose=4 dist/ctp500_ble_cli
-        echo "✓ Binary signed with deep flag and Bluetooth entitlements"
 
+    # ---------------------------------------------------------
+    # Create distribution tarball (flat layout for Homebrew)
+    # ---------------------------------------------------------
     - name: Create distribution tarball
+      id: create_tarball
       run: |
         VERSION="${{ steps.get_version.outputs.VERSION }}"
         DIST_NAME="ctp500-macos-cli-${VERSION}"
         DIST_DIR="dist/${DIST_NAME}"
 
-        # Create distribution directory structure
+        # Create distribution layout
         mkdir -p "${DIST_DIR}"/{bin,files,Formula,docs,tests/backend/fixtures}
 
         # Copy signed binary
         cp dist/ctp500_ble_cli "${DIST_DIR}/bin/"
 
-        # Copy files
+        # Copy driver/backend files
         cp files/ctp500 "${DIST_DIR}/files/"
         cp files/backend_functions.sh "${DIST_DIR}/files/"
         cp files/CTP500.ppd "${DIST_DIR}/files/"
         cp files/ctp500.conf "${DIST_DIR}/files/"
+
+        # Copy formula, docs, tests
         cp Formula/ctp500-printer.rb "${DIST_DIR}/Formula/"
         cp README.md "${DIST_DIR}/"
         cp docs/*.md "${DIST_DIR}/docs/" 2>/dev/null || true
         cp tests/backend/*.sh "${DIST_DIR}/tests/backend/"
         cp tests/backend/fixtures/* "${DIST_DIR}/tests/backend/fixtures/"
 
-        # Create FLAT tarball (IMPORTANT!)
-        tar -czf "dist/${DIST_NAME}.tar.gz" -C "${DIST_DIR}" .
+        # Create FLAT tarball
+        TARBALL="dist/${DIST_NAME}.tar.gz"
+        tar -czf "${TARBALL}" -C "${DIST_DIR}" .
 
-        # Calculate SHA256
-        SHA256=$(shasum -a 256 "dist/${DIST_NAME}.tar.gz" | cut -d' ' -f1)
-        echo "SHA256: $SHA256"
-        echo "SHA256=$SHA256" >> $GITHUB_OUTPUT
-        echo "TARBALL=dist/${DIST_NAME}.tar.gz" >> $GITHUB_OUTPUT
-      id: create_tarball
+        # Compute SHA256
+        SHA256=$(shasum -a 256 "${TARBALL}" | cut -d' ' -f1)
 
+        echo "SHA256=${SHA256}" >> $GITHUB_OUTPUT
+        echo "TARBALL=${TARBALL}" >> $GITHUB_OUTPUT
 
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
+        echo "✓ Built tarball: ${TARBALL}"
+        echo "✓ SHA256: ${SHA256}"
+
+    # ---------------------------------------------------------
+    # Create or update release & upload tarball
+    # (gh CLI avoids deprecated GitHub actions)
+    # ---------------------------------------------------------
+    - name: Create GitHub Release & Upload Asset
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ github.ref }}
-        release_name: Release ${{ github.ref }}
-        body: |
-          CTP500 macOS CLI v${{ steps.get_version.outputs.VERSION }}
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        VERSION="${{ steps.get_version.outputs.VERSION }}"
+        TARBALL="${{ steps.create_tarball.outputs.TARBALL }}"
 
-          ## Installation
+        echo "Creating release for version ${VERSION}"
 
-          ```bash
-          brew tap unxmaal/ctp500
-          brew install ctp500-printer
-          ```
+        # If release does not exist, create it. If it does, update it.
+        gh release create "v${VERSION}" \
+          "${TARBALL}" \
+          --title "CTP500 macOS CLI v${VERSION}" \
+          --notes "Automated release for version ${VERSION}" \
+          --draft=false --prerelease=false || \
+        gh release upload "v${VERSION}" "${TARBALL}" --clobber
 
-          **Note**: This version uses a PyInstaller binary with deep code signing and Bluetooth entitlements for CUPS daemon compatibility.
+        echo "✓ Release created/updated"
 
-          ## What's Changed
-
-          See commit history for details.
-
-          ## Package Info
-
-          - **SHA256**: `${{ steps.create_tarball.outputs.SHA256 }}`
-          - **File**: `ctp500-macos-cli-${{ steps.get_version.outputs.VERSION }}.tar.gz`
-
-          ## Setup
-
-          After installation, run:
-
-          ```bash
-          sudo ln -sf /opt/homebrew/opt/ctp500-printer/libexec/ctp500 /usr/libexec/cups/backend/ctp500
-          sudo chown root:wheel /opt/homebrew/opt/ctp500-printer/libexec/ctp500
-          sudo chown root:wheel /opt/homebrew/opt/ctp500-printer/share/ctp500/backend_functions.sh
-          sudo chmod 755 /opt/homebrew/opt/ctp500-printer/libexec/ctp500
-          sudo chmod 644 /opt/homebrew/opt/ctp500-printer/share/ctp500/backend_functions.sh
-          sudo launchctl stop org.cups.cupsd
-          sudo launchctl start org.cups.cupsd
-          ```
-
-          Then add your printer with your BLE address:
-
-          ```bash
-          lpadmin -p CTP500 -E -v ctp500://YOUR-BLE-ADDRESS -P /opt/homebrew/share/cups/model/CTP500.ppd
-          ```
-        draft: false
-        prerelease: false
-
-    - name: Upload Release Asset
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ${{ steps.create_tarball.outputs.TARBALL }}
-        asset_name: ctp500-macos-cli-${{ steps.get_version.outputs.VERSION }}.tar.gz
-        asset_content_type: application/gzip
-
+    # ---------------------------------------------------------
+    # Summary
+    # ---------------------------------------------------------
     - name: Output SHA256
       run: |
-        echo "## Release Created! 🎉" >> $GITHUB_STEP_SUMMARY
+        echo "## Release Created" >> $GITHUB_STEP_SUMMARY
+        echo "**Version:** ${{ steps.get_version.outputs.VERSION }}" >> $GITHUB_STEP_SUMMARY
+        echo "**SHA256:** \`${{ steps.create_tarball.outputs.SHA256 }}\`" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "**Version**: ${{ steps.get_version.outputs.VERSION }}" >> $GITHUB_STEP_SUMMARY
-        echo "**SHA256**: \`${{ steps.create_tarball.outputs.SHA256 }}\`" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### Next Steps:" >> $GITHUB_STEP_SUMMARY
-        echo "1. Update Formula/ctp500-printer.rb with new SHA256" >> $GITHUB_STEP_SUMMARY
-        echo "2. Push formula to homebrew-ctp500 tap" >> $GITHUB_STEP_SUMMARY
+        echo "Update your Homebrew formula with this checksum." >> $GITHUB_STEP_SUMMARY
