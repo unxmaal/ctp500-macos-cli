@@ -45,6 +45,6 @@ exe = EXE(
     disable_windowed_traceback=False,
     argv_emulation=False,  # macOS-specific
     target_arch=None,  # Build for current architecture
-    codesign_identity=None,  # Set this for code signing if needed
-    entitlements_file=None,
+    codesign_identity='-',  # Ad-hoc signing for macOS
+    entitlements_file='entitlements.plist',  # Bluetooth entitlements
 )

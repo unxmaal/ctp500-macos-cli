@@ -29,6 +29,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install -r requirements-dev.txt
+        pip install pyinstaller
 
     - name: Run Python tests
       run: pytest tests/ -v
@@ -44,6 +45,21 @@ jobs:
       id: get_version
       run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
+    - name: Build binary with PyInstaller
+      run: |
+        pyinstaller ctp500_ble_cli.spec
+        chmod +x dist/ctp500_ble_cli
+
+    - name: Deep code sign binary (CRITICAL for CUPS daemon context)
+      run: |
+        codesign --force --deep -s - \
+          --entitlements entitlements.plist \
+          dist/ctp500_ble_cli
+
+        # Verify signing
+        codesign -dv --verbose=4 dist/ctp500_ble_cli
+        echo "✓ Binary signed with deep flag and Bluetooth entitlements"
+
     - name: Create distribution tarball
       run: |
         VERSION="${{ steps.get_version.outputs.VERSION }}"
@@ -51,11 +67,12 @@ jobs:
         DIST_DIR="dist/${DIST_NAME}"
 
         # Create distribution directory structure
-        mkdir -p "${DIST_DIR}"/{files,Formula,docs,tests/backend/fixtures}
+        mkdir -p "${DIST_DIR}"/{bin,files,Formula,docs,tests/backend/fixtures}
+
+        # Copy signed binary
+        cp dist/ctp500_ble_cli "${DIST_DIR}/bin/"
 
         # Copy files
-        cp ctp500_ble_cli.py "${DIST_DIR}/"
-        cp requirements.txt "${DIST_DIR}/"
         cp files/ctp500 "${DIST_DIR}/files/"
         cp files/backend_functions.sh "${DIST_DIR}/files/"
         cp files/CTP500.ppd "${DIST_DIR}/files/"
@@ -96,7 +113,7 @@ jobs:
           brew install ctp500-printer
           ```
 
-          **Note**: This version uses Python instead of a compiled binary. Python 3.11 and dependencies (bleak, pillow) are installed automatically.
+          **Note**: This version uses a PyInstaller binary with deep code signing and Bluetooth entitlements for CUPS daemon compatibility.
 
           ## What's Changed
 

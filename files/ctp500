@@ -31,27 +31,11 @@ BACKEND_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 
 CONFIG_FILE="${CONFIG_FILE:-${BACKEND_DIR}/../etc/ctp500.conf}"
 
-# Find Python3 (prefer Homebrew python@3.11, fall back to system)
-PYTHON3="${PYTHON3:-/opt/homebrew/opt/python@3.11/bin/python3.11}"
-if [[ ! -x "$PYTHON3" ]]; then
-  PYTHON3="$(command -v python3.11)"
-fi
-if [[ -z "$PYTHON3" ]]; then
-  log_error "python3.11 not found in PATH"
+# Find CLI binary
+CLI_BINARY="${CLI_BINARY:-${BACKEND_DIR}/../bin/ctp500_ble_cli}"
+if [[ ! -x "$CLI_BINARY" ]]; then
+  log_error "CLI binary not found or not executable: $CLI_BINARY"
   exit 2
-fi
-
-# Python script location
-PYTHON_SCRIPT="${PYTHON_SCRIPT:-${BACKEND_DIR}/ctp500_ble_cli.py}"
-if [[ ! -f "$PYTHON_SCRIPT" ]]; then
-  log_error "Python script not found: $PYTHON_SCRIPT"
-  exit 2
-fi
-
-# Set PYTHONPATH to include vendor dependencies
-VENDOR_DIR="${BACKEND_DIR}/vendor"
-if [[ -d "$VENDOR_DIR" ]]; then
-  export PYTHONPATH="${VENDOR_DIR}:${PYTHONPATH}"
 fi
 
 # Source helper functions (tested via TDD)
@@ -180,7 +164,7 @@ case "$FORMAT" in
   text)
     # Use CLI's text command (which creates image internally)
     log_info "Printing text file..."
-    if "$PYTHON3" "$PYTHON_SCRIPT" text \
+    if "$CLI_BINARY" text \
       --address "$BLE_ADDRESS" \
       --write-uuid "$WRITE_UUID" \
       --file "$FILE" \
@@ -226,7 +210,7 @@ esac
 if [[ -n "$IMAGE_FILE" ]] && [[ -f "$IMAGE_FILE" ]]; then
   log_info "Printing image to $BLE_ADDRESS..."
 
-  if "$PYTHON3" "$PYTHON_SCRIPT" image \
+  if "$CLI_BINARY" image \
     --address "$BLE_ADDRESS" \
     --write-uuid "$WRITE_UUID" \
     --file "$IMAGE_FILE" \
