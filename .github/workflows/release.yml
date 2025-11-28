@@ -101,10 +101,10 @@ jobs:
           cp tests/backend/*.sh "${DIST_DIR}/tests/backend/"
           cp tests/backend/fixtures/* "${DIST_DIR}/tests/backend/fixtures/"
 
-          cd dist
-          TARBALL="${DIST_NAME}.tar.gz"
-          tar -czf "${TARBALL}" -C "${DIST_NAME}" .
-          cd ..
+          cd "dist/${DIST_NAME}"
+          TARBALL="../${DIST_NAME}.tar.gz"
+          tar -czf "${TARBALL}" .
+          cd ../..
 
           SHA256=$(shasum -a 256 "dist/${TARBALL}" | cut -d' ' -f1)
 
