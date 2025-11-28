@@ -2,27 +2,25 @@ class Ctp500Printer < Formula
   desc "CUPS backend + CLI for the CTP500 BLE thermal receipt printer"
   homepage "https://github.com/unxmaal/ctp500-macos-cli"
   url "https://github.com/unxmaal/ctp500-macos-cli/releases/download/v1.2.6/ctp500-macos-cli-1.2.6.tar.gz"
-  sha256 "bf5a268fe721f0f82939134bea01a7ff2cef3dd9572926a66588110611d35d1e"
+  sha256 "3880b9c9b9454d83d5b6b31b73dfb64a294c08ea402acbabe4f613b382ad3b62"
   license "MIT"
 
   depends_on :macos
 
   def install
-    # The tarball contains a top-level directory: ctp500-macos-cli-#{version}
-    cd "ctp500-macos-cli-#{version}" do
-      # CLI binary
-      bin.install "bin/ctp500_ble_cli"
+    # Homebrew automatically extracts the tarball and cds into it
+    # CLI binary
+    bin.install "bin/ctp500_ble_cli"
 
-      # Backend binary (used by CUPS)
-      libexec.install "bin/ctp500_ble_cli" => "ctp500"
+    # Backend binary (used by CUPS)
+    libexec.install "bin/ctp500_ble_cli" => "ctp500"
 
-      # Support files
-      (share/"ctp500").install "files/backend_functions.sh"
-      (share/"cups/model").install "files/CTP500.ppd"
+    # Support files
+    (share/"ctp500").install "files/backend_functions.sh"
+    (share/"cups/model").install "files/CTP500.ppd"
 
-      # Config lives under Homebrew etc, not /etc
-      (etc/"ctp500").install "files/ctp500.conf"
-    end
+    # Config lives under Homebrew etc, not /etc
+    (etc/"ctp500").install "files/ctp500.conf"
   end
 
   def caveats
