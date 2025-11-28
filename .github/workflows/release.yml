@@ -103,7 +103,7 @@ jobs:
 
           cd dist
           TARBALL="${DIST_NAME}.tar.gz"
-          tar -czf "${TARBALL}" "${DIST_NAME}"
+          tar -czf "${TARBALL}" -C "${DIST_NAME}" .
           cd ..
 
           SHA256=$(shasum -a 256 "dist/${TARBALL}" | cut -d' ' -f1)
