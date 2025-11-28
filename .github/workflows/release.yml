@@ -75,4 +75,87 @@ jobs:
             dist/ctp500_ble_cli
 
           echo "✓ Signature verification:"
-          codesign -dv --ver
+          codesign -dv --verbose=4 dist/ctp500_ble_cli
+
+      # ---------------------------------------------------------
+      # 7. Create distribution tarball (preserve top-level dir)
+      # ---------------------------------------------------------
+      - name: Create distribution tarball
+        id: create_tarball
+        run: |
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+          DIST_NAME="ctp500-macos-cli-${VERSION}"
+          DIST_DIR="dist/${DIST_NAME}"
+
+          # Build distribution tree
+          mkdir -p "${DIST_DIR}/bin"
+          mkdir -p "${DIST_DIR}/files"
+          mkdir -p "${DIST_DIR}/Formula"
+          mkdir -p "${DIST_DIR}/docs"
+          mkdir -p "${DIST_DIR}/tests/backend/fixtures"
+
+          # Copy binary
+          cp dist/ctp500_ble_cli "${DIST_DIR}/bin/"
+
+          # Copy backend + configs
+          cp files/ctp500 "${DIST_DIR}/files/"
+          cp files/backend_functions.sh "${DIST_DIR}/files/"
+          cp files/CTP500.ppd "${DIST_DIR}/files/"
+          cp files/ctp500.conf "${DIST_DIR}/files/"
+
+          # Copy documentation
+          cp Formula/ctp500-printer.rb "${DIST_DIR}/Formula/"
+          cp README.md "${DIST_DIR}/"
+          cp docs/*.md "${DIST_DIR}/docs/" 2>/dev/null || true
+
+          # Copy tests
+          cp tests/backend/*.sh "${DIST_DIR}/tests/backend/"
+          cp tests/backend/fixtures/* "${DIST_DIR}/tests/backend/fixtures/"
+
+          # Create tarball WITH top-level directory
+          (
+            cd dist
+            tar -czf "${DIST_NAME}.tar.gz" "${DIST_NAME}"
+          )
+
+          # Compute SHA256 for Homebrew formula
+          SHA256=$(shasum -a 256 "dist/${DIST_NAME}.tar.gz" | cut -d" " -f1)
+          echo "SHA256=$SHA256" >> "$GITHUB_OUTPUT"
+          echo "TARBALL=dist/${DIST_NAME}.tar.gz" >> "$GITHUB_OUTPUT"
+
+          echo "✓ Created tarball: dist/${DIST_NAME}.tar.gz"
+          echo "✓ SHA256: ${SHA256}"
+
+      # ---------------------------------------------------------
+      # 8. Publish GitHub Release using official "gh" flow
+      # ---------------------------------------------------------
+      - name: Create GitHub Release & upload tarball
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+          TARBALL="${{ steps.create_tarball.outputs.TARBALL }}"
+
+          echo "Publishing release for v${VERSION}"
+
+          # Create or update release
+          gh release create "v${VERSION}" \
+            "${TARBALL}" \
+            --title "CTP500 macOS CLI v${VERSION}" \
+            --notes "CTP500 macOS CLI version ${VERSION}" \
+            --draft=false \
+            --prerelease=false \
+            --verify-tag \
+            || gh release upload "v${VERSION}" "${TARBALL}" --clobber
+
+          echo "✓ Release published"
+
+      # ---------------------------------------------------------
+      # 9. Summary
+      # ---------------------------------------------------------
+      - name: Output SHA256
+        run: |
+          echo "## Release Created" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Version:** ${{ steps.get_version.outputs.VERSION }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "**SHA256:** \`${{ steps.create_tarball.outputs.SHA256 }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "Update your Homebrew formula with this checksum." >> "$GITHUB_STEP_SUMMARY"
