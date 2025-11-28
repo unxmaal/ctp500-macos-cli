@@ -76,6 +76,9 @@ jobs:
           # Correct verification command
           codesign -dv --verbose=4 dist/ctp500_ble_cli || true
 
+          # Clear extended attributes to prevent Gatekeeper issues
+          xattr -cr dist/ctp500_ble_cli
+
       # ---------------------------------------------------------
       # Build Homebrew-compliant tarball
       # ---------------------------------------------------------
@@ -101,10 +104,10 @@ jobs:
           cp tests/backend/*.sh "${DIST_DIR}/tests/backend/"
           cp tests/backend/fixtures/* "${DIST_DIR}/tests/backend/fixtures/"
 
-          cd "dist/${DIST_NAME}"
-          TARBALL="../${DIST_NAME}.tar.gz"
-          tar -czf "${TARBALL}" .
-          cd ../..
+          cd dist
+          TARBALL="${DIST_NAME}.tar.gz"
+          tar -czf "${TARBALL}" "${DIST_NAME}"
+          cd ..
 
           SHA256=$(shasum -a 256 "dist/${TARBALL}" | cut -d' ' -f1)
 
