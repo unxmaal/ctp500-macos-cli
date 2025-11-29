@@ -13,11 +13,11 @@ class Ctp500Printer < Formula
     (share/"cups/model").install "files/CTP500.ppd"
     (etc/"ctp500").install "files/ctp500.conf"
 
-    # Install binary directly using system commands
+    # Install binary and backend using system commands
     system "mkdir", "-p", bin
     system "mkdir", "-p", libexec
     system "cp", "bin/ctp500_ble_cli", "#{bin}/ctp500_ble_cli"
-    system "cp", "bin/ctp500_ble_cli", "#{libexec}/ctp500"
+    system "cp", "files/ctp500", "#{libexec}/ctp500"
     system "chmod", "755", "#{bin}/ctp500_ble_cli"
     system "chmod", "755", "#{libexec}/ctp500"
   end
