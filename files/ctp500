@@ -22,29 +22,37 @@
 set -e
 
 # Configuration
-# Resolve symlink to find actual backend location
-SCRIPT_PATH="$0"
-if [[ -L "$SCRIPT_PATH" ]]; then
-  SCRIPT_PATH="$(readlink "$SCRIPT_PATH")"
+# Detect Homebrew prefix
+if [[ -n "$HOMEBREW_PREFIX" ]]; then
+  BREW_PREFIX="$HOMEBREW_PREFIX"
+elif [[ -x /opt/homebrew/bin/brew ]]; then
+  BREW_PREFIX="/opt/homebrew"
+elif [[ -x /usr/local/bin/brew ]]; then
+  BREW_PREFIX="/usr/local"
+else
+  # Fallback: resolve from script location
+  SCRIPT_PATH="$0"
+  if [[ -L "$SCRIPT_PATH" ]]; then
+    SCRIPT_PATH="$(readlink "$SCRIPT_PATH")"
+  fi
+  BREW_PREFIX="$(cd "$(dirname "$SCRIPT_PATH")/../.." && pwd)"
 fi
-BACKEND_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 
-CONFIG_FILE="${CONFIG_FILE:-${BACKEND_DIR}/../etc/ctp500.conf}"
+CONFIG_FILE="${CONFIG_FILE:-${BREW_PREFIX}/etc/ctp500/ctp500.conf}"
+CLI_BINARY="${CLI_BINARY:-${BREW_PREFIX}/bin/ctp500_ble_cli}"
+FUNCTIONS_FILE="${BREW_PREFIX}/share/ctp500/backend_functions.sh"
 
-# Find CLI binary
-CLI_BINARY="${CLI_BINARY:-${BACKEND_DIR}/../bin/ctp500_ble_cli}"
+# Validate CLI binary
 if [[ ! -x "$CLI_BINARY" ]]; then
-  log_error "CLI binary not found or not executable: $CLI_BINARY"
+  echo "ERROR: CLI binary not found or not executable: $CLI_BINARY" >&2
   exit 2
 fi
 
 # Source helper functions (tested via TDD)
-if [[ -f "${BACKEND_DIR}/../share/ctp500/backend_functions.sh" ]]; then
-  source "${BACKEND_DIR}/../share/ctp500/backend_functions.sh"
-elif [[ -f "$(dirname "$SCRIPT_PATH")/backend_functions.sh" ]]; then
-  source "$(dirname "$SCRIPT_PATH")/backend_functions.sh"
+if [[ -f "$FUNCTIONS_FILE" ]]; then
+  source "$FUNCTIONS_FILE"
 else
-  echo "ERROR: Cannot find backend_functions.sh" >&2
+  echo "ERROR: Cannot find backend_functions.sh at $FUNCTIONS_FILE" >&2
   exit 2
 fi
 
