@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.11
+#!/opt/homebrew/bin/python3.11
 """
 CUPS Backend for CTP500 Thermal Receipt Printer (BLE)
 

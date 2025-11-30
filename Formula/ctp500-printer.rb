@@ -28,11 +28,12 @@ class Ctp500Printer < Formula
       CUPS backend setup
       ==================
 
-      To enable the CTP500 backend for CUPS:
+      To enable the CTP500 backend for CUPS (copy, not symlink, due to AMFI):
 
-        sudo ln -sf #{opt_prefix}/libexec/ctp500 /usr/libexec/cups/backend/ctp500
+        sudo cp #{opt_prefix}/libexec/ctp500 /usr/libexec/cups/backend/ctp500
         sudo chown root:_lp /usr/libexec/cups/backend/ctp500
         sudo chmod 755 /usr/libexec/cups/backend/ctp500
+        sudo xattr -c /usr/libexec/cups/backend/ctp500
         sudo launchctl kickstart -k system/org.cups.cupsd
 
       Add the printer (replace BLE-ADDRESS with your printer's UUID or MAC):
