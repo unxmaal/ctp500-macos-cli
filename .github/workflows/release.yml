@@ -13,36 +13,56 @@ jobs:
     runs-on: macos-latest
 
     steps:
-      # Checkout
-      - uses: actions/checkout@v4
+      # ---------------------------------------------------------
+      # Checkout repo
+      # ---------------------------------------------------------
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      # Python environment (for tests)
+      # ---------------------------------------------------------
+      # Python toolchain
+      # ---------------------------------------------------------
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      # Install test dependencies
-      - name: Install Homebrew deps
+      # ---------------------------------------------------------
+      # Install Python deps (pytest + runtime deps)
+      # ---------------------------------------------------------
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pillow bleak
+
+      # ---------------------------------------------------------
+      # Install shunit2 for backend tests
+      # ---------------------------------------------------------
+      - name: Install Homebrew test dependencies
         run: brew install shunit2
 
-      # Python tests
-      - name: Run Python tests
+      # ---------------------------------------------------------
+      # Backend + Python tests
+      # ---------------------------------------------------------
+      - name: Run pytest suite
         run: pytest tests/ -v
 
-      # Shell tests
       - name: Run backend shell tests
         run: |
           for f in tests/backend/test_*.sh; do
             bash "$f"
           done
 
-      # Extract version
+      # ---------------------------------------------------------
+      # Extract tag version
+      # ---------------------------------------------------------
       - name: Extract version
         id: get_version
         run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
 
-      # Build Homebrew tarball (pure source + python backend)
+      # ---------------------------------------------------------
+      # Build Homebrew tarball (NO PyInstaller, Python-backend only)
+      # ---------------------------------------------------------
       - name: Create release tarball
         id: create_tarball
         run: |
@@ -50,23 +70,33 @@ jobs:
           DIST_NAME="ctp500-macos-cli-${VERSION}"
           DIST_DIR="dist/${DIST_NAME}"
 
-          mkdir -p "${DIST_DIR}"
+          mkdir -p "${DIST_DIR}"/{files,Formula,docs,tests/backend/fixtures}
 
-          # Copy entire repo except .git
-          rsync -a --exclude='.git' ./ "${DIST_DIR}/"
+          cp files/ctp500.py "${DIST_DIR}/files/"
+          cp files/backend_functions.sh "${DIST_DIR}/files/"
+          cp files/CTP500.ppd "${DIST_DIR}/files/"
+          cp files/ctp500.conf "${DIST_DIR}/files/"
 
-          # Create tarball
+          cp Formula/ctp500-printer.rb "${DIST_DIR}/Formula/"
+          cp README.md "${DIST_DIR}/"
+          cp docs/*.md "${DIST_DIR}/docs/" 2>/dev/null || true
+          cp tests/backend/*.sh "${DIST_DIR}/tests/backend/"
+          cp tests/backend/fixtures/* "${DIST_DIR}/tests/backend/fixtures/"
+
           cd dist
           TARBALL="${DIST_NAME}.tar.gz"
           tar -czf "${TARBALL}" "${DIST_NAME}"
           cd ..
 
           SHA256=$(shasum -a 256 "dist/${TARBALL}" | cut -d' ' -f1)
+
           echo "TARBALL=dist/${TARBALL}" >> "$GITHUB_OUTPUT"
           echo "SHA256=${SHA256}" >> "$GITHUB_OUTPUT"
 
-      # GitHub Release
-      - name: Create/Upload Release
+      # ---------------------------------------------------------
+      # Create or update GitHub release
+      # ---------------------------------------------------------
+      - name: Upload Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -76,10 +106,13 @@ jobs:
           gh release create "v${VERSION}" \
             "${TARBALL}" \
             --title "CTP500 macOS CLI v${VERSION}" \
-            --notes "Release ${VERSION}" \
+            --notes "Automated release for version ${VERSION}" \
             --draft=false --prerelease=false || \
           gh release upload "v${VERSION}" "${TARBALL}" --clobber
 
+      # ---------------------------------------------------------
+      # Summary
+      # ---------------------------------------------------------
       - name: Summary
         run: |
           echo "## Release Created" >> "$GITHUB_STEP_SUMMARY"
