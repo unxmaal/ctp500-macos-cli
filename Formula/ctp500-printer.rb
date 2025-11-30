@@ -1,8 +1,8 @@
 class Ctp500Printer < Formula
   desc "CUPS backend for the CTP500 BLE thermal receipt printer"
   homepage "https://github.com/unxmaal/ctp500-macos-cli"
-  url "https://github.com/unxmaal/ctp500-macos-cli/archive/refs/tags/v1.3.1.tar.gz"
-  sha256 "79690c929d467cb3278812018b6bd30a2700d85a0ffadb14e1613ab46d2fa8ff"
+  url "https://github.com/unxmaal/ctp500-macos-cli/archive/refs/tags/v1.4.0.tar.gz"
+  sha256 "685416ce215eaa407640ea35fbf585f3ce2be1100c86e9da47d9c086680bbf2c"
   license "MIT"
 
   depends_on :macos
